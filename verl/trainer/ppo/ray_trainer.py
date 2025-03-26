@@ -450,6 +450,7 @@ class RayPPOTrainer(object):
         self.resource_pool_manager = resource_pool_manager
         self.use_reference_policy = Role.RefPolicy in role_worker_mapping
         self.use_rm = Role.RewardModel in role_worker_mapping
+        self.use_solver = Role.Solver in role_worker_mapping
         self.ray_worker_group_cls = ray_worker_group_cls
         self.validation_generations_logger = ValidationGenerationsLogger()
 
@@ -795,6 +796,10 @@ class RayPPOTrainer(object):
 
             test_batch = test_batch.union(test_output_gen_batch)
 
+            # generate solution here too
+            test_solution = self.solver_wg.generate_solutions(test_batch)
+            test_batch = test_batch.union(test_solution)
+
             # evaluate using reward_function
             reward_tensor = self.val_reward_fn(test_batch)
 
@@ -886,6 +891,15 @@ class RayPPOTrainer(object):
             )
             self.resource_pool_to_cls[resource_pool]["rm"] = rm_cls
 
+        if self.use_solver:
+            # we create a solver here
+            resource_pool = self.resource_pool_manager.get_resource_pool(Role.Solver)
+            solver_cls = RayClassWithInitArgs(
+                self.role_worker_mapping[Role.Solver],
+                config=self.config.solver_model,
+            )
+            self.resource_pool_to_cls[resource_pool]["solver"] = solver_cls
+
         # initialize WorkerGroup
         # NOTE: if you want to use a different resource pool for each role, which can support different parallel size,
         # you should not use `create_colocated_worker_cls`. Instead, directly pass different resource pool to different worker groups.
@@ -913,6 +927,10 @@ class RayPPOTrainer(object):
         if self.use_rm:
             self.rm_wg = all_wg["rm"]
             self.rm_wg.init_model()
+
+        if self.use_solver:
+            self.solver_wg = all_wg["solver"]
+            self.solver_wg.init_model()
 
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_wg = all_wg["actor_rollout"]
@@ -1131,7 +1149,7 @@ class RayPPOTrainer(object):
                             gen_batch
                         )
 
-                    # let's use this estimator for a start
+                    # let's not use this estimator for a start
                     if self.config.algorithm.adv_estimator == AdvantageEstimator.REMAX:
                         with _timer("gen_max", timing_raw):
                             gen_baseline_batch = deepcopy(gen_batch)
@@ -1193,6 +1211,15 @@ class RayPPOTrainer(object):
                             values = self.critic_wg.compute_values(batch)
                             batch = batch.union(values)
 
+                    # generate solution
+                    if self.use_solver:
+                        with _timer("gen", timing_raw):
+                            # get generated question
+                            # pass to a solver worker
+                            # get solution from solver and add to batch
+                            solutions = self.solver_wg.generate_solution(batch)
+                            batch = batch.union(solutions)
+
                     with _timer("adv", timing_raw):
                         # compute scores. Support both model and function-based.
                         # We first compute the scores using reward model. Then, we call reward_fn to combine
@@ -1202,10 +1229,6 @@ class RayPPOTrainer(object):
                             # this reward model should compare the original question to the generated question
                             reward_tensor = self.rm_wg.compute_rm_score(batch)
                             batch = batch.union(reward_tensor)
-
-                        # get generated question
-                        # pass to a solver worker
-                        # get solution from solver and add to batch
 
                         # we combine with rule-based rm
                         reward_tensor = self.reward_fn(batch)
