@@ -13,7 +13,7 @@ def extract_solution(solution_str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--local_dir", default="/opt/tiger/gsm8k")
+    parser.add_argument("--local_dir", default="tinyzerocodeq/data/taco")
     parser.add_argument("--hdfs_dir", default=None)
 
     args = parser.parse_args()
@@ -21,13 +21,13 @@ if __name__ == "__main__":
     num_few_shot = 5
     data_source = "BAAI/TACO"
 
-    dataset = datasets.load_dataset(data_source, "main")
+    dataset = datasets.load_dataset(data_source)
 
     train_dataset = dataset["train"]
     test_dataset = dataset["test"]
 
     instruction_following = (
-        "Come up with a programming word problem for the following solution."
+        "Come up with a programming word problem given the following solution:"
     )
 
     # Construct a `def make_map_fn(split)` for the corresponding datasets.
@@ -79,6 +79,8 @@ if __name__ == "__main__":
     train_dataset.to_parquet(os.path.join(local_dir, "train.parquet"))
     test_dataset.to_parquet(os.path.join(local_dir, "test.parquet"))
 
-    makedirs(hdfs_dir)
+    if hdfs_dir is not None:
 
-    copy(src=local_dir, dst=hdfs_dir)
+        makedirs(hdfs_dir)
+
+        copy(src=local_dir, dst=hdfs_dir)

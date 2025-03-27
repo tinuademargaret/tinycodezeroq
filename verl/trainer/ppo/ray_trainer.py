@@ -64,6 +64,7 @@ class Role(Enum):
     RefPolicy = 4
     RewardModel = 5
     ActorRolloutRef = 6
+    Solver = 7
 
 
 class AdvantageEstimator(str, Enum):
@@ -171,7 +172,6 @@ def apply_kl_penalty(
     else:
         beta = 0
         kld = torch.zeros_like(response_mask, dtype=torch.float32)
-
     token_level_rewards = token_level_scores - beta * kld
 
     current_kl = masked_mean(kld, mask=response_mask, axis=-1)  # average over sequence
@@ -181,7 +181,7 @@ def apply_kl_penalty(
     kl_ctrl.update(current_kl=current_kl, n_steps=batch_size)
     data.batch["token_level_rewards"] = token_level_rewards
 
-    metrics = {"critic/kl": current_kl, "critic/kl_coeff": beta}
+    metrics = {"critic/kl": current_kl, "critic/kl_coeff": beta} 
 
     return data, metrics
 
@@ -795,9 +795,10 @@ class RayPPOTrainer(object):
             sample_outputs.extend(output_texts)
 
             test_batch = test_batch.union(test_output_gen_batch)
-
+            print(test_batch.batch.keys())
             # generate solution here too
-            test_solution = self.solver_wg.generate_solutions(test_batch)
+            test_solution = self.solver_wg.generate_solution(test_batch)
+            print(test_solution.batch.keys())
             test_batch = test_batch.union(test_solution)
 
             # evaluate using reward_function
@@ -1089,6 +1090,8 @@ class RayPPOTrainer(object):
         """
         from verl.utils.tracking import Tracking
         from omegaconf import OmegaConf
+
+        # breakpoint()
 
         logger = Tracking(
             project_name=self.config.trainer.project_name,

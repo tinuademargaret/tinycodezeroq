@@ -69,6 +69,7 @@ def run_ppo(config) -> None:
                     "TOKENIZERS_PARALLELISM": "true",
                     "NCCL_DEBUG": "WARN",
                     "VLLM_LOGGING_LEVEL": "WARN",
+                    "RAY_DEBUG": "1",
                 }
             }
         )
@@ -195,6 +196,7 @@ def main_task(config):
         val_reward_fn=val_reward_fn,
     )
     trainer.init_workers()
+    # breakpoint()
     trainer.fit()
 
 

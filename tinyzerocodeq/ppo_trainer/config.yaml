@@ -1,7 +1,7 @@
 data:
   tokenizer: null
-  train_files: ~/data/taco/train.parquet
-  val_files: ~/data/taco/test.parquet
+  train_files: /teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data/taco/train.parquet
+  val_files: /teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data/taco/test.parquet
   prompt_key: prompt
   max_prompt_length: 512
   max_response_length: 512
@@ -17,17 +17,17 @@ data:
 actor_rollout_ref:
   hybrid_engine: True
   model:
-    path: ~/models/Qwen/Qwen2.5-Coder-0.5B
+    path: Qwen/Qwen2.5-Coder-0.5B
     external_lib: null
     override_config: { }
-    enable_gradient_checkpointing: True
-    use_remove_padding: False
+    enable_gradient_checkpointing: False
+    use_remove_padding: True
   actor:
     strategy: fsdp  # This is for backward-compatibility
     ppo_mini_batch_size: 256
     ppo_micro_batch_size: null # will be deprecated, use ppo_micro_batch_size_per_gpu
-    ppo_micro_batch_size_per_gpu: null
-    use_dynamic_bsz: False
+    ppo_micro_batch_size_per_gpu: 8
+    use_dynamic_bsz: True
     ppo_max_token_len_per_gpu: 16384 # n * ${data.max_prompt_length} + ${data.max_response_length}
     grad_clip: 1.0
     clip_ratio: 0.2
@@ -50,7 +50,7 @@ actor_rollout_ref:
         # transformer_layer_cls_to_wrap: None
         min_num_params: 0
       param_offload: False
-      optimizer_offload: False
+      optimizer_offload: True
       fsdp_size: -1
   ref:
     fsdp_config:
@@ -59,7 +59,7 @@ actor_rollout_ref:
         # transformer_layer_cls_to_wrap: None
         min_num_params: 0
     log_prob_micro_batch_size: null # will be deprecated, use log_prob_micro_batch_size_per_gpu
-    log_prob_micro_batch_size_per_gpu: null
+    log_prob_micro_batch_size_per_gpu: 16
     log_prob_use_dynamic_bsz: ${actor_rollout_ref.actor.use_dynamic_bsz}
     log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
     ulysses_sequence_parallel_size: ${actor_rollout_ref.actor.ulysses_sequence_parallel_size} # sp size
@@ -78,12 +78,12 @@ actor_rollout_ref:
     enforce_eager: True
     free_cache_engine: True
     load_format: dummy_dtensor
-    tensor_model_parallel_size: 2
+    tensor_model_parallel_size: 1
     max_num_batched_tokens: 8192
     max_model_len: null
     max_num_seqs: 1024
     log_prob_micro_batch_size: null # will be deprecated, use log_prob_micro_batch_size_per_gpu
-    log_prob_micro_batch_size_per_gpu: null
+    log_prob_micro_batch_size_per_gpu: 16
     log_prob_use_dynamic_bsz: ${actor_rollout_ref.actor.use_dynamic_bsz}
     log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
     disable_log_stats: True
@@ -109,12 +109,12 @@ critic:
     warmup_style: constant  # select from constant/cosine
     total_training_steps: -1  # must be override by program
   model:
-    path: ~/models/deepseek-llm-7b-chat
+    path: Qwen/Qwen2.5-Coder-0.5B
     tokenizer_path: ${actor_rollout_ref.model.path}
     override_config: { }
     external_lib: ${actor_rollout_ref.model.external_lib}
-    enable_gradient_checkpointing: True
-    use_remove_padding: False
+    enable_gradient_checkpointing: False
+    use_remove_padding: True
     fsdp_config:
       param_offload: False
       optimizer_offload: False
@@ -124,7 +124,7 @@ critic:
       fsdp_size: -1
   ppo_mini_batch_size: ${actor_rollout_ref.actor.ppo_mini_batch_size}
   ppo_micro_batch_size: null # will be deprecated, use ppo_micro_batch_size_per_gpu
-  ppo_micro_batch_size_per_gpu: null
+  ppo_micro_batch_size_per_gpu: 8
   forward_micro_batch_size: ${critic.ppo_micro_batch_size}
   forward_micro_batch_size_per_gpu: ${critic.ppo_micro_batch_size_per_gpu}
   use_dynamic_bsz: ${actor_rollout_ref.actor.use_dynamic_bsz}
@@ -160,6 +160,11 @@ reward_model:
 solver_model:
   enable: True
   strategy: fsdp
+  do_sample: True
+  top_k: 0 # 0 for hf rollout, -1 for vllm rollout
+  top_p: 1
+  temperature: 1.0
+  response_length: ${data.max_response_length}
   model:
     input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical
     path: Qwen/Qwen2.5-Coder-0.5B-Instruct
@@ -189,23 +194,23 @@ algorithm:
   kl_penalty: kl  # how to estimate kl divergence
   kl_ctrl:
     type: fixed
-    kl_coef: 0.001
+    kl_coef: 0.0001
 
 trainer:
   balance_batch: True
-  total_epochs: 30
+  total_epochs: 2
   total_training_steps: null
   project_name: tinyzerocodeq
-  experiment_name: taco
+  experiment_name: Qwen2.5-Coder-0.5B_debug
   logger: [ 'console', 'wandb' ]
   val_generations_to_log_to_wandb: 0
   nnodes: 1
-  n_gpus_per_node: 8
+  n_gpus_per_node: 1
   save_freq: -1
   # auto: find the last ckpt to resume. If can't find, start from scratch
   resume_mode: auto # or auto or resume_path if 
   resume_from_path: False
-  test_freq: -1
+  test_freq: 10
   critic_warmup: 0
   default_hdfs_dir: null
   remove_previous_ckpt_in_save: False

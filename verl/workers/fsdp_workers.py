@@ -1638,35 +1638,35 @@ class SolverModelWorker(Worker):
             attention_mask = micro_batch["attention_mask"]
             position_ids = micro_batch["position_ids"]
 
-            response_length = 2000
+            response_length = 1024
 
             # if self.use_remove_padding:
-            input_ids_rmpad, indices, *_ = unpad_input(
-                input_ids.unsqueeze(-1), attention_mask
-            )  # input_ids_rmpad (total_nnz, ...)
-            input_ids_rmpad = input_ids_rmpad.transpose(0, 1)  # (1, total_nnz)
+            # input_ids_rmpad, indices, *_ = unpad_input(
+            #     input_ids.unsqueeze(-1), attention_mask
+            # )  # input_ids_rmpad (total_nnz, ...)
+            # input_ids_rmpad = input_ids_rmpad.transpose(0, 1)  # (1, total_nnz)
 
-            # unpad the position_ids to align the rotary
-            position_ids_rmpad = index_first_axis(
-                rearrange(position_ids.unsqueeze(-1), "b s ... -> (b s) ..."),
-                indices,
-            ).transpose(0, 1)
+            # # unpad the position_ids to align the rotary
+            # position_ids_rmpad = index_first_axis(
+            #     rearrange(position_ids.unsqueeze(-1), "b s ... -> (b s) ..."),
+            #     indices,
+            # ).transpose(0, 1)
 
-            # pad and slice the inputs if sp > 1
-            if self.ulysses_sequence_parallel_size > 1:
-                input_ids_rmpad, position_ids_rmpad, pad_size = (
-                    ulysses_pad_and_slice_inputs(
-                        input_ids_rmpad,
-                        position_ids_rmpad,
-                        sp_size=self.ulysses_sequence_parallel_size,
-                    )
-                )
+            # # pad and slice the inputs if sp > 1
+            # if self.ulysses_sequence_parallel_size > 1:
+            #     input_ids_rmpad, position_ids_rmpad, pad_size = (
+            #         ulysses_pad_and_slice_inputs(
+            #             input_ids_rmpad,
+            #             position_ids_rmpad,
+            #             sp_size=self.ulysses_sequence_parallel_size,
+            #         )
+            #     )
 
             # only pass input_ids and position_ids to enable flash_attn_varlen
             output = self.solver_module.generate(
-                input_ids=input_ids_rmpad,
+                input_ids=input_ids,
                 attention_mask=None,
-                position_ids=position_ids_rmpad,
+                position_ids=position_ids,
                 do_sample=do_sample,
                 max_new_tokens=response_length,
                 generation_config=gen_config,
@@ -1680,6 +1680,11 @@ class SolverModelWorker(Worker):
             sequence_length = seqlen + response_length
             delta_length = sequence_length - seq.shape[1]
 
+            # print(f"seqlen: {seqlen}")
+            # print(f"response_length: {response_length}")
+            # print(f"sequence_length: {sequence_length}")
+            # print(f"Initial seq: {seq.shape}")
+
             if delta_length > 0:
                 delta_tokens = torch.ones(
                     size=(batch_size, delta_length),
@@ -1688,8 +1693,10 @@ class SolverModelWorker(Worker):
                 )
                 delta_tokens = self.tokenizer.pad_token_id * delta_tokens
                 seq = torch.cat((seq, delta_tokens), dim=1)
-
-            assert seq.shape[1] == sequence_length
+            
+            # print(f"New seq: {seq.shape}")
+            
+            # assert seq.shape[1] == sequence_length
 
             prompt = seq[:, :seqlen]  # (bs, prompt_length)
             response = seq[:, seqlen:]  # (bs, response_length)
@@ -1708,17 +1715,20 @@ class SolverModelWorker(Worker):
                 eos_token=self.tokenizer.eos_token_id,
                 dtype=attention_mask.dtype,
             )
+            # print(f"response_attention_mask: {response_attention_mask.shape}")
+            # print(f"attention_mask: {attention_mask.shape}")
+            # breakpoint()
             attention_mask = torch.cat(
                 (attention_mask, response_attention_mask), dim=-1
             )
 
             batch = TensorDict(
                 {
-                    "prompts": prompt,
+                    # "prompts": prompt,
                     "solutions": response,
-                    "input_ids": seq,
-                    "attention_mask": attention_mask,
-                    "position_ids": position_ids,
+                    # "input_ids": seq,
+                    # "attention_mask": attention_mask,
+                    # "position_ids": position_ids,
                 },
                 batch_size=batch_size,
             )
@@ -1850,6 +1860,19 @@ class SolverModelWorker(Worker):
         # Support all hardwares
         prompts.batch = prompts.batch.to(torch.cuda.current_device())
 
+        #  meta_info = {
+        #     "eos_token_id": (
+        #         self.generation_config.eos_token_id
+        #         if self.generation_config is not None
+        #         else self.tokenizer.eos_token_id
+        #     ),
+        #     "pad_token_id": (
+        #         self.generation_config.pad_token_id
+        #         if self.generation_config is not None
+        #         else self.tokenizer.pad_token_id
+        #     ),
+        # }
+
         # perform forward computation
         with self.ulysses_sharding_manager:
             prompts = self.ulysses_sharding_manager.preprocess_data(data=prompts)
@@ -1912,7 +1935,7 @@ class SolverModelWorker(Worker):
 
         # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes
         # unshard the root FSDP module
-        self.solver_module._handle.reshard(True)
+        # self.solver_module._handle.reshard(True)
 
         output = output.to("cpu")
         return output
