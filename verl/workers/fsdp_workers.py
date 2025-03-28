@@ -1638,7 +1638,7 @@ class SolverModelWorker(Worker):
             attention_mask = micro_batch["attention_mask"]
             position_ids = micro_batch["position_ids"]
 
-            response_length = 1024
+            response_length = 200
 
             # if self.use_remove_padding:
             # input_ids_rmpad, indices, *_ = unpad_input(
