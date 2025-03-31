@@ -1,3 +1,4 @@
+import ast
 import re
 import os
 import datasets
@@ -41,7 +42,7 @@ if __name__ == "__main__":
         """
 
         def process_fn(example, idx):
-            solution_raw = example.pop("solutions")[0]
+            solution_raw = ast.literal_eval(example.pop("solutions"))[0]
 
             question = instruction_following + " " + solution_raw
 

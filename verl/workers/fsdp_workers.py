@@ -1264,6 +1264,8 @@ class RewardModelWorker(Worker):
             device_mesh=self.device_mesh,
         )
 
+        log_gpu_memory_usage("After Reward FSDP init", logger=logger)
+
         return reward_module
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
@@ -1612,6 +1614,8 @@ class SolverModelWorker(Worker):
             device_mesh=self.device_mesh,
         )
 
+        log_gpu_memory_usage("After Solver FSDP init", logger=logger)
+
         return solver_module
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
@@ -1693,9 +1697,9 @@ class SolverModelWorker(Worker):
                 )
                 delta_tokens = self.tokenizer.pad_token_id * delta_tokens
                 seq = torch.cat((seq, delta_tokens), dim=1)
-            
+
             # print(f"New seq: {seq.shape}")
-            
+
             # assert seq.shape[1] == sequence_length
 
             prompt = seq[:, :seqlen]  # (bs, prompt_length)

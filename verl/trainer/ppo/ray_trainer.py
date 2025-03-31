@@ -47,6 +47,7 @@ from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
 from verl.utils.tracking import ValidationGenerationsLogger
 from torch.utils.data import RandomSampler, SequentialSampler
+from verl.utils.debug import log_gpu_memory_usage
 from torchdata.stateful_dataloader import StatefulDataLoader
 
 WorkerType = Type[Worker]
@@ -1155,10 +1156,12 @@ class RayPPOTrainer(object):
 
                 with _timer("step", timing_raw):
                     # generate a batch
+                    log_gpu_memory_usage("Before rollout", logger=logger)
                     with _timer("gen", timing_raw):
                         gen_batch_output = self.actor_rollout_wg.generate_sequences(
                             gen_batch
                         )
+                    log_gpu_memory_usage("After rollout", logger=logger)
 
                     # let's not use this estimator for a start
                     if self.config.algorithm.adv_estimator == AdvantageEstimator.REMAX:
@@ -1224,12 +1227,14 @@ class RayPPOTrainer(object):
 
                     # generate solution
                     if self.use_solver:
+                        log_gpu_memory_usage("Before Solver", logger=logger)
                         with _timer("gen", timing_raw):
                             # get generated question
                             # pass to a solver worker
                             # get solution from solver and add to batch
                             solutions = self.solver_wg.generate_solution(batch)
                             batch = batch.union(solutions)
+                        log_gpu_memory_usage("After Solver", logger=logger)
 
                     with _timer("adv", timing_raw):
                         # compute scores. Support both model and function-based.
