@@ -20,6 +20,8 @@ from functools import partial
 from pathlib import Path
 from typing import List, Union, Dict, Any
 
+import wandb
+
 
 class Tracking(object):
     supported_backend = [
@@ -54,7 +56,7 @@ class Tracking(object):
         self.logger = {}
 
         if "tracking" in default_backend or "wandb" in default_backend:
-            import wandb
+            
 
             wandb.init(project=project_name, name=experiment_name, config=config)
             self.logger["wandb"] = wandb
@@ -211,8 +213,7 @@ class ValidationGenerationsLogger:
 
     def log_generations_to_wandb(self, samples, step):
         """Log samples to wandb as a table"""
-        import wandb
-
+        # import wandb
         # Create column names for all samples
         columns = ["step"] + sum(
             [

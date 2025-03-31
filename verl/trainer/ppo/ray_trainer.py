@@ -696,7 +696,7 @@ class RayPPOTrainer(object):
             )
             self.config.critic.optim.total_training_steps = total_training_steps
 
-    def _maybe_log_val_generations(self, inputs, outputs, scores):
+    def _maybe_log_val_generations(self, inputs, outputs, solutions, scores):
         """Log a table of validation samples to the configured logger (wandb or swanlab)"""
 
         generations_to_log = self.config.trainer.val_generations_to_log_to_wandb
@@ -707,7 +707,7 @@ class RayPPOTrainer(object):
         import numpy as np
 
         # Create tuples of (input, output, score) and sort by input text
-        samples = list(zip(inputs, outputs, scores))
+        samples = list(zip(inputs, outputs, solutions, scores))
         samples.sort(key=lambda x: x[0])  # Sort by input text
 
         # Use fixed random seed for deterministic shuffling
@@ -798,7 +798,12 @@ class RayPPOTrainer(object):
             test_batch = test_batch.union(test_output_gen_batch)
             # generate solution here too
             test_solution = self.solver_wg.generate_solution(test_batch)
-            sample_solutions.extend(test_batch.batch["solutions"])
+            solution_ids = test_solution.batch["solutions"]
+            solution_texts = [
+                self.tokenizer.decode(ids, skip_special_tokens=True)
+                for ids in solution_ids
+            ]
+            sample_solutions.extend(solution_texts)
             test_batch = test_batch.union(test_solution)
 
             # evaluate using reward_function

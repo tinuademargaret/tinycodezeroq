@@ -118,7 +118,7 @@ class PrimeRewardManager:
         # batched scoring
         prompt_ids = data.batch["prompts"]
 
-        response_ids = data.batch["responses"]
+        response_ids = data.batch["solutions"]
         sequences_str = self.tokenizer.batch_decode(
             response_ids, skip_special_tokens=True
         )
