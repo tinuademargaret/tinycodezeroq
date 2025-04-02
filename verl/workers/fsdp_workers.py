@@ -1796,7 +1796,12 @@ class SolverModelWorker(Worker):
             chat: list = [
                 {
                     "role": "system",
-                    "content": "Write python code to solve the given question",
+                    "content": ("Given the following problem description, write a complete solution in Python that adheres to the following guidelines:"
+                                "The solution must be enclosed within a Python code block."
+                                "Read the input from standard input (stdin) exactly as described in the problem statement."
+                                "Process the input according to the problem's requirements."
+                                "Output the result using the print() function exclusively (do not use return statements or stdout.write())."
+                                ),
                 }
             ]
             # extract response
