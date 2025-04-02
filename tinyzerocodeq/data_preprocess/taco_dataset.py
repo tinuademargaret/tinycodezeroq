@@ -2,6 +2,7 @@ import ast
 import re
 import os
 import datasets
+import json
 
 from verl.utils.hdfs_io import copy, makedirs
 import argparse
@@ -28,7 +29,8 @@ if __name__ == "__main__":
     test_dataset = dataset["test"]
 
     instruction_following = (
-        "Come up with a programming word problem given the following solution:"
+        "Given the following solution code, generate a detailed programming word problem inspired by typical LeetCode or Codeforces challenges. The generated problem must include:"
+        "A clear and engaging problem description, A list of constraints, Precise input and output format descriptions, One or more example cases with sample inputs and outputs, and A brief explanation of what the solution code is expected to accomplish."
     )
 
     # Construct a `def make_map_fn(split)` for the corresponding datasets.
@@ -42,14 +44,19 @@ if __name__ == "__main__":
         """
 
         def process_fn(example, idx):
-            solution_raw = ast.literal_eval(example.pop("solutions"))[0]
+            solutions = ast.literal_eval(example.pop("solutions"))
+
+            if len(solutions) != 0:
+                solution_raw = solutions[0]
+            else:
+                solution_raw = str(solutions)
 
             question = instruction_following + " " + solution_raw
 
             # The question is the answer
             answer_raw = example.pop("question")
             # solution = extract_solution(answer_raw)
-            test_cases = example.pop("input_output")
+            test_cases = json.loads(example.pop("input_output"))
             data = {
                 "data_source": data_source,
                 "prompt": [
