@@ -187,7 +187,6 @@ class RLHFDataset(Dataset):
                                                                               self.processor.image_token)
         else:
             raw_prompt = prompt_with_chat_template
-
         input_ids, attention_mask = verl_F.tokenize_and_postprocess_data(prompt=prompt_with_chat_template,
                                                                          tokenizer=self.tokenizer,
                                                                          max_length=self.max_prompt_length,

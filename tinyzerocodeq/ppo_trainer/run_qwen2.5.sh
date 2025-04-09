@@ -11,10 +11,10 @@ python3 -m verl.trainer.main_ppo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.train_batch_size=8 \
-    data.max_prompt_length=200 \
+    data.max_prompt_length=500 \
     data.max_response_length=200 \
     data.filter_overlong_prompts=True \
-    data.truncation='error' \
+    data.truncation='right' \
     actor_rollout_ref.model.path=Qwen/Qwen2.5-Coder-0.5B \
     actor_rollout_ref.model.enable_gradient_checkpointing=False \
     actor_rollout_ref.actor.optim.lr=1e-6 \

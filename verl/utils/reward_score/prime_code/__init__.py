@@ -20,7 +20,7 @@ import re
 import traceback
 
 
-def compute_score(completion, test_cases, continuous=False):
+def compute_score(completion, test_cases, continuous=True):
     # try to get code solution from completion. if the completion is pure code, this will not take effect.
     solution = completion.split("```python")[-1].split("```")[0]
     try:

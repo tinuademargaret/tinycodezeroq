@@ -29,8 +29,8 @@ if __name__ == "__main__":
     test_dataset = dataset["test"]
 
     instruction_following = (
-        "Given the following solution code, generate a detailed programming word problem inspired by typical LeetCode or Codeforces challenges. The generated problem must include:"
-        "A clear and engaging problem description, A list of constraints, Precise input and output format descriptions, One or more example cases with sample inputs and outputs, and A brief explanation of what the solution code is expected to accomplish."
+        "Given the following solution code, generate a leetcode style programming word problem.The generated problem must include a"
+        "precise input and output format descriptions."
     )
 
     # Construct a `def make_map_fn(split)` for the corresponding datasets.
@@ -49,14 +49,14 @@ if __name__ == "__main__":
             if len(solutions) != 0:
                 solution_raw = solutions[0]
             else:
-                solution_raw = str(solutions)
+                solution_raw = " "
 
             question = instruction_following + " " + solution_raw
 
             # The question is the answer
             answer_raw = example.pop("question")
             # solution = extract_solution(answer_raw)
-            test_cases = json.loads(example.pop("input_output"))
+            test_cases = example.pop("input_output")
             data = {
                 "data_source": data_source,
                 "prompt": [
