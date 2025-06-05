@@ -16,6 +16,7 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
+import aiohttp
 import torch
 
 from verl import DataProto
@@ -62,6 +63,7 @@ async def parallel_compute_score_async(
         if extra_info is None:
             extra_info = [None] * len(tasks)
         # Create tasks for all rows
+
         tasks_async = [
             single_compute_score(
                 evaluation_func,
@@ -101,39 +103,98 @@ async def parallel_compute_score_async(
     return scores
 
 
+async def single_inference(session, url, data):
+    try:
+        async with session.post(url, json=data) as r:
+            response = await r.json()
+            return response["content"]
+    except Exception as e:
+        print(f"Error in single inference: {e}")
+        return None
+
+
+async def parallel_inference(
+    config,
+    data,
+):
+    url = config.url
+    timeout = aiohttp.ClientTimeout(
+        total=config.timeout,
+    )
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        task_async = [
+            asyncio.create_task(
+                single_inference(
+                    session,
+                    url,
+                    {"prompt": problem},
+                )
+            )
+            for problem in data
+        ]
+
+        try:
+            responses = await asyncio.gather(*task_async)
+        except Exception as e:
+            print(f"Error in parallel inference: {e}")
+            responses = [None] * len(data)
+
+        return responses
+
+
 class PrimeRewardManager:
     """
     The Reward Manager used in https://github.com/PRIME-RL/PRIME
     """
 
-    def __init__(self, tokenizer, num_examine, compute_score=None) -> None:
+    def __init__(self, config, tokenizer, num_examine, compute_score=None) -> None:
         self.tokenizer = tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
         self.compute_score = compute_score or _default_compute_score
+        self.config = config
 
     def verify(self, data):
         """
+        solve generated problem (responses) to get solutions to verify
         verify the batch and save as ``acc`` tensor
         """
-        # batched scoring
-        prompt_ids = data.batch["prompts"]
 
-        response_ids = data.batch["solutions"]
-        sequences_str = self.tokenizer.batch_decode(
-            response_ids, skip_special_tokens=True
+        generated_problem_ids = data.batch["responses"]
+        generated_problem_str = self.tokenizer.batch_decode(
+            generated_problem_ids, skip_special_tokens=True
         )
+
+        """
+        pass question_str to parallel_inference to get solutions
+        """
+        try:
+            solution_str = asyncio.run(
+                parallel_inference(self.config, generated_problem_str)
+            )
+        except Exception as e:
+            print(f"Error in parallel inference: {e}")
+            solution_str = [None] * len(generated_problem_str)
+
+        # batched scoring
+        original_solution_ids = data.batch["prompts"]
+        original_solution_str = self.tokenizer.batch_decode(
+            original_solution_ids, skip_special_tokens=True
+        )
+
+        # ground truth is test cases
         ground_truth = [
             data_item.non_tensor_batch["reward_model"]["ground_truth"]
             for data_item in data
         ]
         data_sources = data.non_tensor_batch["data_source"]
 
-        assert len(sequences_str) == len(ground_truth) == len(data_sources)
+        assert len(solution_str) == len(ground_truth) == len(data_sources)
         try:
             scores = asyncio.run(
                 parallel_compute_score_async(
                     self.compute_score,
-                    sequences_str,
+                    solution_str,
                     ground_truth,
                     data_sources,
                     num_processes=64,
@@ -141,14 +202,14 @@ class PrimeRewardManager:
             )
         except asyncio.TimeoutError as e:
             print("Global timeout in reward computing! Setting all as 0.")
-            scores = [0.0 for _ in range(len(sequences_str))]
+            scores = [0.0 for _ in range(len(solution_str))]
         except Exception as e:
             print(
                 f"Unexpected error in batched reward computing. Setting all as 0.: {e}"
             )
-            scores = [0.0 for _ in range(len(sequences_str))]
+            scores = [0.0 for _ in range(len(solution_str))]
         data.batch["acc"] = torch.tensor(
-            scores, dtype=torch.float32, device=prompt_ids.device
+            scores, dtype=torch.float32, device=original_solution_ids.device
         )
         return scores
 
@@ -159,7 +220,11 @@ class PrimeRewardManager:
         if "rm_scores" in data.batch.keys():
             return data.batch["rm_scores"]
 
-        reward_tensor = torch.zeros_like(data.batch["solutions"], dtype=torch.float32)
+        # this reward tensor is used to compute the advantages of the actor rollout i.e the generated problem
+        # but the scores stored are from the  solution of the generated problem
+        reward_tensor = torch.zeros_like(
+            data.batch["responses"], dtype=torch.float32
+        )  # should be B, T
 
         already_print_data_sources = {}
 
@@ -167,20 +232,21 @@ class PrimeRewardManager:
         prompt_ids = data.batch["prompts"]
         prompt_length = prompt_ids.shape[-1]
 
-        response_ids = data.batch["solutions"]
+        response_ids = data.batch["responses"]
         valid_response_length = data.batch["attention_mask"][:, prompt_length:].sum(
             dim=-1
         )
-        sequences_str = self.tokenizer.batch_decode(
+        generated_problem_str = self.tokenizer.batch_decode(
             response_ids, skip_special_tokens=True
         )
         data_sources = data.non_tensor_batch["data_source"]
         extra_info = data.non_tensor_batch.get("extra_info", [None] * len(data_sources))
 
-        scores = self.verify(data)
+        scores = self.verify(data)  # should be B
 
         for i in range(len(data)):
             data_source = data_sources[i]
+            # seems like we are storing scores at the last valid position
             reward_tensor[i, valid_response_length[i].item() - 1] = scores[i]
 
             if data_source not in already_print_data_sources:
@@ -188,6 +254,8 @@ class PrimeRewardManager:
 
             if already_print_data_sources[data_source] < self.num_examine:
                 already_print_data_sources[data_source] += 1
-                print(sequences_str)
+                print(
+                    f"-----------------------------Generated Problem: {generated_problem_str[i]}-----------------------------"
+                )
 
         return reward_tensor
