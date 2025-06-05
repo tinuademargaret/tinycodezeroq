@@ -14,8 +14,10 @@
 """
 Note that we don't combine the main with ray_trainer as ray_trainer is used by other main.
 """
+from functools import partial
+import multiprocessing
 from verl.trainer.ppo.ray_trainer import RayPPOTrainer
-
+from verl.utils.reward_score import _default_compute_score
 import ray
 import hydra
 
@@ -172,13 +174,37 @@ def main_task(config):
         raise NotImplementedError
 
     compute_score = get_custom_reward_fn(config)
+    final_compute_score = compute_score
+
+    if compute_score is None:
+        sandbox_config = config.reward_model.get("sandbox_fusion")
+        sandbox_url = sandbox_config.get("url") if sandbox_config else None
+        if sandbox_url:
+            sandbox_manager = multiprocessing.Manager()
+            _concurrent_semaphore = sandbox_manager.Semaphore(
+                sandbox_config.get("max_concurrent", 64)
+            )
+            final_compute_score = partial(
+                _default_compute_score,
+                sandbox_fusion_url=sandbox_url,
+                concurrent_semaphore=_concurrent_semaphore,
+            )
+        else:
+            final_compute_score = _default_compute_score
+
     reward_fn = reward_manager_cls(
-        tokenizer=tokenizer, num_examine=0, compute_score=compute_score
+        config.reward_model.solver,
+        tokenizer=tokenizer,
+        num_examine=0,
+        compute_score=final_compute_score,
     )
 
     # Note that we always use function-based RM for validation
     val_reward_fn = reward_manager_cls(
-        tokenizer=tokenizer, num_examine=1, compute_score=compute_score
+        config.reward_model.solver,
+        tokenizer=tokenizer,
+        num_examine=1,
+        compute_score=final_compute_score,
     )
 
     resource_pool_manager = ResourcePoolManager(

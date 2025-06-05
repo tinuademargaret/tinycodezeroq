@@ -55,7 +55,7 @@ def compute_score(completion, test_cases, continuous=True):
             res_list = []
             for test_case_id, test_case in enumerate(test_cases_list):
                 res, metadata = apps_check_correctness(
-                    in_outs=test_case, generation=solution, timeout=5, debug=False
+                    in_outs=test_case, generation=solution, timeout=10, debug=False
                 )
                 try:
                     metadata = dict(enumerate(metadata))[
