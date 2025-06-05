@@ -123,12 +123,20 @@ async def parallel_inference(
     )
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
+        instruction = (
+            "Given the problem description, write a complete solution in Python that adheres to the following guidelines:"
+            "The solution must:"
+            "- Be enclosed within a Python code block"
+            "- Read the input from standard input (stdin) exactly as described in the problem statement"
+            "- Process the input according to the problem's requirements"
+            "- Output the result using the print() function exclusively (do not use return statements or stdout.write())"
+        )
         task_async = [
             asyncio.create_task(
                 single_inference(
                     session,
                     url,
-                    {"prompt": problem},
+                    {"prompt": instruction + "\n\n" + "PROBLEM: " + problem},
                 )
             )
             for problem in data

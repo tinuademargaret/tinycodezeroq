@@ -1222,6 +1222,7 @@ class RayPPOTrainer(object):
                             batch = batch.union(values)
 
                     # generate solution
+<<<<<<< HEAD
                     if self.use_solver:
                         with _timer("gen", timing_raw):
                             # get generated question
@@ -1229,6 +1230,17 @@ class RayPPOTrainer(object):
                             # get solution from solver and add to batch
                             solutions = self.solver_wg.generate_solution(batch)
                             batch = batch.union(solutions)
+=======
+                    # if self.use_solver:
+                    #     log_gpu_memory_usage("Before Solver", logger=logger)
+                    #     with _timer("gen", timing_raw):
+                    #         # get generated question
+                    #         # pass to a solver worker
+                    #         # get solution from solver and add to batch
+                    #         solutions = self.solver_wg.generate_solution(batch)
+                    #         batch = batch.union(solutions)
+                    #     log_gpu_memory_usage("After Solver", logger=logger)
+>>>>>>> aa2c584 (configs and updates)
 
                     with _timer("adv", timing_raw):
                         # compute scores. Support both model and function-based.
@@ -1241,7 +1253,7 @@ class RayPPOTrainer(object):
                             batch = batch.union(reward_tensor)
 
                         # we combine with rule-based rm
-                        reward_tensor = self.reward_fn(batch)
+                        reward_tensor = self.reward_fn(batch)  # B, T
                         batch.batch["token_level_scores"] = reward_tensor
 
                         # compute rewards. apply_kl_penalty if available
