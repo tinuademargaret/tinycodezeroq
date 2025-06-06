@@ -156,39 +156,12 @@ reward_model:
   use_dynamic_bsz: ${critic.use_dynamic_bsz}
   forward_max_token_len_per_gpu: ${critic.forward_max_token_len_per_gpu}
   reward_manager: prime
-
-solver_model:
-  enable: True
-  strategy: fsdp
-  do_sample: True
-  top_k: 0 # 0 for hf rollout, -1 for vllm rollout
-  top_p: 1
-  temperature: 1.0
-  response_length: ${data.max_response_length}
-  model:
-    input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical
-    path: Qwen/Qwen2.5-Coder-0.5B-Instruct
-    external_lib: ${actor_rollout_ref.model.external_lib}
-    use_remove_padding: False
-    fsdp_config:
-      wrap_policy:
-        min_num_params: 0
-      param_offload: False
-      fsdp_size: -1
-  micro_batch_size: null # will be deprecated, use micro_batch_size_per_gpu
-  micro_batch_size_per_gpu: null # set a number
-  max_length: null
-  ulysses_sequence_parallel_size: 1 # sp size
-  use_dynamic_bsz: ${critic.use_dynamic_bsz}
-  forward_max_token_len_per_gpu: ${critic.forward_max_token_len_per_gpu}
-  reward_manager: naive
-  launch_reward_fn_async: False # custom reward function executed async on CPU, during log_prob
   sandbox_fusion:
     url: null # faas url to run code in cloud sandbox
     max_concurrent: 64 # max concurrent requests to sandbox
   solver:
     url: "http://localhost:8080/completion"
-    timeout: 1600
+    timeout: 1600  
 
 custom_reward_function:
   path: null

@@ -450,7 +450,7 @@ class RayPPOTrainer(object):
         self.resource_pool_manager = resource_pool_manager
         self.use_reference_policy = Role.RefPolicy in role_worker_mapping
         self.use_rm = Role.RewardModel in role_worker_mapping
-        self.use_solver = Role.Solver in role_worker_mapping
+        # self.use_solver = Role.Solver in role_worker_mapping
         self.ray_worker_group_cls = ray_worker_group_cls
         self.validation_generations_logger = ValidationGenerationsLogger()
 
@@ -900,14 +900,14 @@ class RayPPOTrainer(object):
             )
             self.resource_pool_to_cls[resource_pool]["rm"] = rm_cls
 
-        if self.use_solver:
-            # we create a solver here
-            resource_pool = self.resource_pool_manager.get_resource_pool(Role.Solver)
-            solver_cls = RayClassWithInitArgs(
-                self.role_worker_mapping[Role.Solver],
-                config=self.config.solver_model,
-            )
-            self.resource_pool_to_cls[resource_pool]["solver"] = solver_cls
+        # if self.use_solver:
+        #     # we create a solver here
+        #     resource_pool = self.resource_pool_manager.get_resource_pool(Role.Solver)
+        #     solver_cls = RayClassWithInitArgs(
+        #         self.role_worker_mapping[Role.Solver],
+        #         config=self.config.solver_model,
+        #     )
+        #     self.resource_pool_to_cls[resource_pool]["solver"] = solver_cls
 
         # initialize WorkerGroup
         # NOTE: if you want to use a different resource pool for each role, which can support different parallel size,
@@ -937,9 +937,9 @@ class RayPPOTrainer(object):
             self.rm_wg = all_wg["rm"]
             self.rm_wg.init_model()
 
-        if self.use_solver:
-            self.solver_wg = all_wg["solver"]
-            self.solver_wg.init_model()
+        # if self.use_solver:
+        #     self.solver_wg = all_wg["solver"]
+        #     self.solver_wg.init_model()
 
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_wg = all_wg["actor_rollout"]
