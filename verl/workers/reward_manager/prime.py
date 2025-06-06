@@ -50,9 +50,9 @@ async def single_compute_score(
     except asyncio.TimeoutError:
         print(f"Timeout occurred for completion: {completion}")
         return None  # Default value for timed-out rows
-    except Exception as e:
-        print(f"Error processing completion: {completion[:10]}, Error: {e}")
-        return None  # Default value for failed rows
+    # except Exception as e:
+    #     print(f"Error processing completion: {completion[:10]}, Error: {e}")
+    #     return None  # Default value for failed rows
 
 
 async def parallel_compute_score_async(
@@ -141,6 +141,7 @@ async def parallel_inference(
             )
             for problem in data
         ]
+        print(f"--------------------------------------NO OF TASKS: {len(task_async)}-------------------------------------------------------------------")
 
         try:
             responses = await asyncio.gather(*task_async)
@@ -198,6 +199,7 @@ class PrimeRewardManager:
         data_sources = data.non_tensor_batch["data_source"]
 
         assert len(solution_str) == len(ground_truth) == len(data_sources)
+        print("COMPUTING SCORES.........")
         try:
             scores = asyncio.run(
                 parallel_compute_score_async(
@@ -244,6 +246,10 @@ class PrimeRewardManager:
         valid_response_length = data.batch["attention_mask"][:, prompt_length:].sum(
             dim=-1
         )
+
+        prompt_str = self.tokenizer.batch_decode(
+            prompt_ids, skip_special_tokens=True
+        )
         generated_problem_str = self.tokenizer.batch_decode(
             response_ids, skip_special_tokens=True
         )
@@ -263,7 +269,12 @@ class PrimeRewardManager:
             if already_print_data_sources[data_source] < self.num_examine:
                 already_print_data_sources[data_source] += 1
                 print(
-                    f"-----------------------------Generated Problem: {generated_problem_str[i]}-----------------------------"
+                    f"------------------------------------------------------------PROMPT--------------------------------------------------------------------------------------"
                 )
+                print(prompt_str[i])
+                print(
+                    f"-------------------------------------------------------------Generated Problem---------------------------------------------------------------------------"
+                )
+                print({generated_problem_str[i]})
 
         return reward_tensor
