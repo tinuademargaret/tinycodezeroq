@@ -177,6 +177,7 @@ def main_task(config):
     final_compute_score = compute_score
 
     if compute_score is None:
+        print("compute_score is None")
         sandbox_config = config.reward_model.get("sandbox_fusion")
         sandbox_url = sandbox_config.get("url") if sandbox_config else None
         if sandbox_url:

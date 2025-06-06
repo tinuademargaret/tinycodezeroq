@@ -210,14 +210,15 @@ class PrimeRewardManager:
                     num_processes=64,
                 )
             )
+            print(f"SCORES: {scores}")
         except asyncio.TimeoutError as e:
             print("Global timeout in reward computing! Setting all as 0.")
             scores = [0.0 for _ in range(len(solution_str))]
-        except Exception as e:
-            print(
-                f"Unexpected error in batched reward computing. Setting all as 0.: {e}"
-            )
-            scores = [0.0 for _ in range(len(solution_str))]
+        # except Exception as e:
+        #     print(
+        #         f"Unexpected error in batched reward computing. Setting all as 0.: {e}"
+        #     )
+        #     scores = [0.0 for _ in range(len(solution_str))]
         data.batch["acc"] = torch.tensor(
             scores, dtype=torch.float32, device=original_solution_ids.device
         )

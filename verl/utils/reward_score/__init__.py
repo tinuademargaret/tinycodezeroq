@@ -45,11 +45,11 @@ def _default_compute_score(
         from . import prime_math
 
         res = prime_math.compute_score(solution_str, ground_truth)
-    elif data_source in ["codecontests", "apps", "codeforces", "taco"]:
+    elif data_source in ["codecontests", "apps", "codeforces", "taco", "BAAI/TACO"]:
         # Use the passed sandbox_fusion_url if available
         if sandbox_fusion_url:
             from . import sandbox_fusion
-
+            print("sandbox_fusion_url is not None")
             # Pass the URL directly, ground_truth likely contains test cases here
             res = sandbox_fusion.compute_score(
                 sandbox_fusion_url,
@@ -68,6 +68,8 @@ def _default_compute_score(
         res = geo3k.compute_score(solution_str, ground_truth)
     else:
         raise NotImplementedError
+
+    print(f"RES: {res}")
 
     if isinstance(res, (int, float, bool)):
         return float(res)

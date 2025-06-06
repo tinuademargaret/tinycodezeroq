@@ -885,7 +885,7 @@ class CriticWorker(Worker):
 
         trust_remote_code = False
         critic_model_config = AutoConfig.from_pretrained(
-            local_path, trust_remote_code=trust_remote_code
+            local_path, attn_implementation="flash_attention_2", trust_remote_code=trust_remote_code
         )
         critic_model_config.num_labels = 1
 
@@ -913,7 +913,6 @@ class CriticWorker(Worker):
                 pretrained_model_name_or_path=local_path,
                 torch_dtype=torch_dtype,
                 config=critic_model_config,
-                attn_implementation="flash_attention_2",
                 trust_remote_code=trust_remote_code,
             )
 
