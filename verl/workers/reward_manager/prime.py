@@ -141,7 +141,9 @@ async def parallel_inference(
             )
             for problem in data
         ]
-        print(f"--------------------------------------NO OF TASKS: {len(task_async)}-------------------------------------------------------------------")
+        print(
+            f"--------------------------------------NO OF TASKS: {len(task_async)}-------------------------------------------------------------------"
+        )
 
         try:
             responses = await asyncio.gather(*task_async)
@@ -174,16 +176,19 @@ class PrimeRewardManager:
             generated_problem_ids, skip_special_tokens=True
         )
 
-        """
-        pass question_str to parallel_inference to get solutions
-        """
-        try:
-            solution_str = asyncio.run(
-                parallel_inference(self.config, generated_problem_str)
-            )
-        except Exception as e:
-            print(f"Error in parallel inference: {e}")
-            solution_str = [None] * len(generated_problem_str)
+        generated_solution_ids = data.batch["solutions"]
+        generated_solution_str = self.tokenizer.batch_decode(generated_solution_ids)
+
+        # """
+        # pass question_str to parallel_inference to get solutions
+        # """
+        # try:
+        #     solution_str = asyncio.run(
+        #         parallel_inference(self.config, generated_problem_str)
+        #     )
+        # except Exception as e:
+        #     print(f"Error in parallel inference: {e}")
+        #     solution_str = [None] * len(generated_problem_str)
 
         # batched scoring
         original_solution_ids = data.batch["prompts"]
@@ -198,13 +203,13 @@ class PrimeRewardManager:
         ]
         data_sources = data.non_tensor_batch["data_source"]
 
-        assert len(solution_str) == len(ground_truth) == len(data_sources)
+        assert len(generated_solution_str) == len(ground_truth) == len(data_sources)
         print("COMPUTING SCORES.........")
         try:
             scores = asyncio.run(
                 parallel_compute_score_async(
                     self.compute_score,
-                    solution_str,
+                    generated_solution_str,
                     ground_truth,
                     data_sources,
                     num_processes=64,
@@ -213,7 +218,7 @@ class PrimeRewardManager:
             print(f"SCORES: {scores}")
         except asyncio.TimeoutError as e:
             print("Global timeout in reward computing! Setting all as 0.")
-            scores = [0.0 for _ in range(len(solution_str))]
+            scores = [0.0 for _ in range(len(generated_solution_str))]
         # except Exception as e:
         #     print(
         #         f"Unexpected error in batched reward computing. Setting all as 0.: {e}"
@@ -248,9 +253,7 @@ class PrimeRewardManager:
             dim=-1
         )
 
-        prompt_str = self.tokenizer.batch_decode(
-            prompt_ids, skip_special_tokens=True
-        )
+        prompt_str = self.tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
         generated_problem_str = self.tokenizer.batch_decode(
             response_ids, skip_special_tokens=True
         )

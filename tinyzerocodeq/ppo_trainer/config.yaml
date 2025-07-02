@@ -208,10 +208,10 @@ solver_model:
     log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
     disable_log_stats: True
     enable_chunked_prefill: True # may get higher throughput when set to True. When activated, Please increase max_num_batched_tokens or decrease max_model_len.
-    # for hf rollout
-    do_sample: True
+    # should be False for solver model
+    do_sample: False
     # number of responses (i.e. num sample times)
-    n: 1 # > 1 for grpo
+    n: 0 # > 1 for grpo
     val_kwargs:
       # sampling parameters for validation
       top_k: -1 # 0 for hf rollout, -1 for vllm rollout
