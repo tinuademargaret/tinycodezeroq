@@ -1635,9 +1635,9 @@ class SolverModelWorker(Worker):
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get("external_lib", None))
         self.solver_module = self._build_model(config=self.config)
-        self.system_prompt_ids = self.tokenizer.encode(
-            self.system_prompt, skip_special_tokens=True
-        )
+        self.system_prompt_ids = self.tokenizer(
+            self.system_prompt, add_special_tokens=False
+        )["input_ids"][0]
         self.rollout, self.rollout_sharding_manager = self._build_rollout()
 
     def _build_rollout(self):
