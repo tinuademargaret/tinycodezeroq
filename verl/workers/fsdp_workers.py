@@ -1497,15 +1497,16 @@ class SolverModelWorker(Worker):
 
     def __init__(self, config):
         super().__init__()
+        self.config = config
         import torch.distributed
 
         if not torch.distributed.is_initialized():
             torch.distributed.init_process_group(backend="nccl")
-        self.config = config
+        
 
         # build device mesh for Ulysses Sequence Parallel
         world_size = torch.distributed.get_world_size()
-        self.world_size = world_size
+        # self.world_size = torch.distributed.get_world_size()
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1532,9 +1533,9 @@ class SolverModelWorker(Worker):
         # self.use_remove_padding = self.config.model.get("use_remove_padding", False)
 
         # normalize config
-        if self.config.micro_batch_size is not None:
-            self.config.micro_batch_size //= torch.distributed.get_world_size()
-            self.config.micro_batch_size_per_gpu = self.config.micro_batch_size
+        # if self.config.micro_batch_size is not None:
+        #     self.config.micro_batch_size //= torch.distributed.get_world_size()
+        #     self.config.micro_batch_size_per_gpu = self.config.micro_batch_size
 
         self._is_param_offload = self.config.model.fsdp_config.param_offload
 
@@ -1671,7 +1672,7 @@ class SolverModelWorker(Worker):
 
         if vllm_mode == "customized":
             rollout = vLLMRollout(
-                module=self.solver_module,
+                actor_module=self.solver_module,
                 config=self.config.rollout,
                 tokenizer=self.tokenizer,
                 model_hf_config=self.solver_module_config,

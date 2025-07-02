@@ -167,14 +167,15 @@ solver_model:
   enable: True
   strategy: fsdp
   model:
-    input_tokenizer: deepseek-ai/deepseek-coder-1.3b-instruct  # set this to null if the chat template is identical
-    path: deepseek-ai/deepseek-coder-1.3b-instruct
+    input_tokenizer: Qwen/Qwen2.5-Coder-0.5B-Instruct  # set this to null if the chat template is identical
+    path: Qwen/Qwen2.5-Coder-0.5B-Instruct
+    # deepseek-ai/deepseek-coder-1.3b-instruct
     external_lib: null
     use_remove_padding: True
     fsdp_config:
       wrap_policy:
         min_num_params: 0
-      param_offload: True
+      param_offload: False
       fsdp_size: -1
   max_length: null
   ulysses_sequence_parallel_size: 1 # sp size
@@ -209,7 +210,7 @@ solver_model:
     # should be False for solver model
     do_sample: False
     # number of responses (i.e. num sample times)
-    n: 0 # > 1 for grpo
+    n: 1 # > 1 for grpo
     val_kwargs:
       # sampling parameters for validation
       top_k: -1 # 0 for hf rollout, -1 for vllm rollout
