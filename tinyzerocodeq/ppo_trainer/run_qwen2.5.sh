@@ -15,7 +15,7 @@ python3 -m verl.trainer.main_ppo \
     data.max_response_length=100 \
     data.filter_overlong_prompts=True \
     data.truncation='right' \
-    actor_rollout_ref.model.path=Qwen/Qwen2.5-Coder-0.5B \
+    actor_rollout_ref.model.path=deepseek-ai/deepseek-coder-1.3b-instruct \
     actor_rollout_ref.model.enable_gradient_checkpointing=False \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \

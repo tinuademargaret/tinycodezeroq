@@ -1645,7 +1645,7 @@ class SolverModelWorker(Worker):
         )
         self.system_prompt_ids = self.tokenizer(
             self.system_prompt, add_special_tokens=False
-        )["input_ids"][0]
+        )["input_ids"]
         self.rollout, self.rollout_sharding_manager = self._build_rollout()
 
     def _build_rollout(self):

@@ -79,6 +79,7 @@ class RLHFDataset(Dataset):
 
     def __init__(self,
                  parquet_files: Union[str, List[str]],
+                 file_ext: str,
                  tokenizer: PreTrainedTokenizer,
                  processor: Optional[ProcessorMixin] = None,
                  prompt_key='prompt',
@@ -95,6 +96,7 @@ class RLHFDataset(Dataset):
 
         self.parquet_files = copy.deepcopy(parquet_files)
         self.original_parquet_files = copy.deepcopy(parquet_files)  # use for resume
+        self.file_ext = file_ext
         self.cache_dir = os.path.expanduser(cache_dir)
         self.tokenizer = tokenizer
         self.processor = processor
@@ -123,11 +125,18 @@ class RLHFDataset(Dataset):
 
     def _read_files_and_tokenize(self):
         dataframes = []
-        for parquet_file in self.parquet_files:
-            # read parquet files and cache
-            dataframe = pd.read_parquet(parquet_file)
-            dataframes.append(dataframe)
-        self.dataframe = pd.concat(dataframes)
+        if self.file_ext == "json":
+            for parquet_file in self.parquet_files:
+                # read parquet files and cache
+                dataframe = pd.read_json(parquet_file)
+                dataframes.append(dataframe)
+            self.dataframe = pd.concat(dataframes)
+        elif self.file_ext == "parquet":
+            for parquet_file in self.parquet_files:
+                # read parquet files and cache
+                dataframe = pd.read_parquet(parquet_file)
+                dataframes.append(dataframe)
+            self.dataframe = pd.concat(dataframes)
 
         print(f'dataset len: {len(self.dataframe)}')
 

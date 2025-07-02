@@ -2,6 +2,7 @@ data:
   tokenizer: null
   train_files: /teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data/taco/train.parquet
   val_files: /teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data/taco/test.parquet
+  file_ext: "parquet"
   prompt_key: prompt
   max_prompt_length: 512
   max_response_length: 512
