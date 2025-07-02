@@ -1513,23 +1513,23 @@ class SolverModelWorker(Worker):
             world_size=world_size, fsdp_size=fsdp_size
         )
 
-        self.ulysses_device_mesh = None
-        self.ulysses_sequence_parallel_size = self.config.get(
-            "ulysses_sequence_parallel_size", 1
-        )
-        dp = world_size // self.ulysses_sequence_parallel_size
-        if self.ulysses_sequence_parallel_size > 1:
-            self.ulysses_device_mesh = init_device_mesh(
-                "cuda",
-                mesh_shape=(dp, self.ulysses_sequence_parallel_size),
-                mesh_dim_names=["dp", "sp"],
-            )
+        # self.ulysses_device_mesh = None
+        # self.ulysses_sequence_parallel_size = self.config.get(
+        #     "ulysses_sequence_parallel_size", 1
+        # )
+        # dp = world_size // self.ulysses_sequence_parallel_size
+        # if self.ulysses_sequence_parallel_size > 1:
+        #     self.ulysses_device_mesh = init_device_mesh(
+        #         "cuda",
+        #         mesh_shape=(dp, self.ulysses_sequence_parallel_size),
+        #         mesh_dim_names=["dp", "sp"],
+        #     )
 
-        self.ulysses_sharding_manager = FSDPUlyssesShardingManager(
-            self.ulysses_device_mesh
-        )
+        # self.ulysses_sharding_manager = FSDPUlyssesShardingManager(
+        #     self.ulysses_device_mesh
+        # )
 
-        self.use_remove_padding = self.config.model.get("use_remove_padding", False)
+        # self.use_remove_padding = self.config.model.get("use_remove_padding", False)
 
         # normalize config
         if self.config.micro_batch_size is not None:
@@ -1537,7 +1537,6 @@ class SolverModelWorker(Worker):
             self.config.micro_batch_size_per_gpu = self.config.micro_batch_size
 
         self._is_param_offload = self.config.model.fsdp_config.param_offload
-        self._is_optimizer_offload = self.config.model.fsdp_config.optimizer_offload
 
         self.system_prompt = (
             "Given the problem description, write a complete solution in Python that adheres to the following guidelines:"
@@ -1555,29 +1554,28 @@ class SolverModelWorker(Worker):
             ShardingStrategy,
             CPUOffload,
         )
+        from verl.utils.model import (
+            print_model_size,
+            update_model_config,
+            get_generation_config,
+        )
 
         # download the checkpoint from hdfs
+        log_gpu_memory_usage("Before init Solver from HF AutoModel", logger=logger)
         local_path = copy_to_local(config.model.path)
 
-        if self.config.model.input_tokenizer is None:
-            self._do_switch_chat_template = False
-        else:
-            self._do_switch_chat_template = True
-            input_tokenizer_local_path = copy_to_local(config.model.input_tokenizer)
-            self.input_tokenizer = hf_tokenizer(
-                input_tokenizer_local_path,
-                trust_remote_code=config.model.get("trust_remote_code", False),
-            )
-            self.tokenizer = hf_tokenizer(
-                local_path,
-                trust_remote_code=config.model.get("trust_remote_code", False),
-            )
+        self.tokenizer = hf_tokenizer(
+            local_path,
+            trust_remote_code=config.model.get("trust_remote_code", False),
+        )
 
         trust_remote_code = config.model.get("trust_remote_code", False)
         model_config = AutoConfig.from_pretrained(
             local_path, trust_remote_code=trust_remote_code
         )
-        model_config.num_labels = 1
+        self.generation_config = get_generation_config(
+            local_path, trust_remote_code=trust_remote_code
+        )
 
         use_remove_padding = config.model.get("use_remove_padding", False)
         if use_remove_padding:
@@ -1585,10 +1583,17 @@ class SolverModelWorker(Worker):
 
             check_model_support_rmpad(model_config.model_type)
 
-        if use_remove_padding and self.ulysses_sequence_parallel_size > 1:
-            from verl.models.transformers.monkey_patch import apply_monkey_patch
+        # if use_remove_padding and self.ulysses_sequence_parallel_size > 1:
+        #     from verl.models.transformers.monkey_patch import apply_monkey_patch
 
-            apply_monkey_patch(model_config, verbose=True)
+        #     apply_monkey_patch(model_config, verbose=True)
+
+        override_config_kwargs = {
+            "bos_token_id": self.tokenizer.bos_token_id,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "pad_token_id": self.tokenizer.pad_token_id,
+        }
+        update_model_config(model_config, override_config_kwargs=override_config_kwargs)
 
         # note that we have to create model in fp32. Otherwise, the optimizer is in bf16, which is incorrect
         init_context = get_init_weight_context_manager(
@@ -1628,13 +1633,15 @@ class SolverModelWorker(Worker):
 
         log_gpu_memory_usage("After Solver FSDP init", logger=logger)
 
-        return solver_module
+        return solver_module, model_config
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def init_model(self):
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get("external_lib", None))
-        self.solver_module = self._build_model(config=self.config)
+        self.solver_module, self.solver_module_config = self._build_model(
+            config=self.config
+        )
         self.system_prompt_ids = self.tokenizer(
             self.system_prompt, add_special_tokens=False
         )["input_ids"][0]
@@ -1667,14 +1674,14 @@ class SolverModelWorker(Worker):
                 module=self.solver_module,
                 config=self.config.rollout,
                 tokenizer=self.tokenizer,
-                model_hf_config=self.solver_module.config,
+                model_hf_config=self.solver_module_config,
             )
         elif vllm_mode == "spmd":
             rollout = vLLMRollout(
                 model_path=local_path,
                 config=self.config.rollout,
                 tokenizer=self.tokenizer,
-                model_hf_config=self.solver_module.config,
+                model_hf_config=self.solver_module_config,
                 device_mesh=rollout_device_mesh,
             )
         else:
@@ -1688,7 +1695,7 @@ class SolverModelWorker(Worker):
         rollout_sharding_manager = FSDPVLLMShardingManager(
             module=self.solver_module,
             inference_engine=rollout.inference_engine,
-            model_config=self.solver_module.config,
+            model_config=self.solver_module_config,
             full_params="hf" in self.config.rollout.load_format,
             device_mesh=rollout_device_mesh,
         )

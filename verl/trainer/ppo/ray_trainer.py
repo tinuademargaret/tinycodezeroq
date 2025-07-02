@@ -450,7 +450,7 @@ class RayPPOTrainer(object):
         self.resource_pool_manager = resource_pool_manager
         self.use_reference_policy = Role.RefPolicy in role_worker_mapping
         self.use_rm = Role.RewardModel in role_worker_mapping
-        # self.use_solver = Role.Solver in role_worker_mapping
+        self.use_solver = Role.Solver in role_worker_mapping
         self.ray_worker_group_cls = ray_worker_group_cls
         self.validation_generations_logger = ValidationGenerationsLogger()
 
@@ -748,8 +748,7 @@ class RayPPOTrainer(object):
         # Store original inputs
         input_ids = test_batch.batch["input_ids"]
         input_texts = [
-            self.tokenizer.decode(ids, skip_special_tokens=True)
-            for ids in input_ids
+            self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids
         ]
         sample_inputs.extend(input_texts)
 
@@ -793,21 +792,19 @@ class RayPPOTrainer(object):
         # Store generated outputs
         output_ids = test_output_gen_batch.batch["responses"]
         output_texts = [
-            self.tokenizer.decode(ids, skip_special_tokens=True)
-            for ids in output_ids
+            self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids
         ]
         sample_outputs.extend(output_texts)
 
         test_batch = test_batch.union(test_output_gen_batch)
         # generate solution here too
-        # test_solution = self.solver_wg.generate_solution(test_batch)
-        # solution_ids = test_solution.batch["solutions"]
-        # solution_texts = [
-        #     self.tokenizer.decode(ids, skip_special_tokens=True)
-        #     for ids in solution_ids
-        # ]
-        # sample_solutions.extend(solution_texts)
-        # test_batch = test_batch.union(test_solution)
+        test_solution = self.solver_wg.generate_solution(test_batch)
+        solution_ids = test_solution.batch["solutions"]
+        solution_texts = [
+            self.tokenizer.decode(ids, skip_special_tokens=True) for ids in solution_ids
+        ]
+        sample_solutions.extend(solution_texts)
+        test_batch = test_batch.union(test_solution)
 
         # evaluate using reward_function
         reward_tensor = self.val_reward_fn(test_batch)
@@ -903,14 +900,14 @@ class RayPPOTrainer(object):
             )
             self.resource_pool_to_cls[resource_pool]["rm"] = rm_cls
 
-        # if self.use_solver:
-        #     # we create a solver here
-        #     resource_pool = self.resource_pool_manager.get_resource_pool(Role.Solver)
-        #     solver_cls = RayClassWithInitArgs(
-        #         self.role_worker_mapping[Role.Solver],
-        #         config=self.config.solver_model,
-        #     )
-        #     self.resource_pool_to_cls[resource_pool]["solver"] = solver_cls
+        if self.use_solver:
+            # we create a solver here
+            resource_pool = self.resource_pool_manager.get_resource_pool(Role.Solver)
+            solver_cls = RayClassWithInitArgs(
+                self.role_worker_mapping[Role.Solver],
+                config=self.config.solver_model,
+            )
+            self.resource_pool_to_cls[resource_pool]["solver"] = solver_cls
 
         # initialize WorkerGroup
         # NOTE: if you want to use a different resource pool for each role, which can support different parallel size,
@@ -940,9 +937,9 @@ class RayPPOTrainer(object):
             self.rm_wg = all_wg["rm"]
             self.rm_wg.init_model()
 
-        # if self.use_solver:
-        #     self.solver_wg = all_wg["solver"]
-        #     self.solver_wg.init_model()
+        if self.use_solver:
+            self.solver_wg = all_wg["solver"]
+            self.solver_wg.init_model()
 
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_wg = all_wg["actor_rollout"]
@@ -1225,15 +1222,15 @@ class RayPPOTrainer(object):
                             batch = batch.union(values)
 
                     # generate solution
-                    # if self.use_solver:
-                    #     log_gpu_memory_usage("Before Solver", logger=logger)
-                    #     with _timer("gen", timing_raw):
-                    #         # get generated question
-                    #         # pass to a solver worker
-                    #         # get solution from solver and add to batch
-                    #         solutions = self.solver_wg.generate_solution(batch)
-                    #         batch = batch.union(solutions)
-                    #     log_gpu_memory_usage("After Solver", logger=logger)
+                    if self.use_solver:
+                        # log_gpu_memory_usage("Before Solver", logger=logger)
+                        with _timer("gen", timing_raw):
+                            # get generated question
+                            # pass to a solver worker
+                            # get solution from solver and add to batch
+                            solutions = self.solver_wg.generate_solution(batch)
+                            batch = batch.union(solutions)
+                        # log_gpu_memory_usage("After Solver", logger=logger)
 
                     with _timer("adv", timing_raw):
                         # compute scores. Support both model and function-based.

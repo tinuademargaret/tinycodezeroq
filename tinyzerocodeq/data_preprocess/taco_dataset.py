@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
             # The question is the answer
             answer_raw = example.pop("question")
-            # solution = extract_solution(answer_raw)
+
             test_cases = example.pop("input_output")
             data = {
                 "data_source": data_source,
@@ -66,12 +66,15 @@ if __name__ == "__main__":
                     }
                 ],
                 "ability": "code",
-                "reward_model": {"style": "rule", "ground_truth": test_cases},
+                "reward_model": {
+                    "style": "rule",
+                    "ground_truth": test_cases,
+                },  # {inputs:[], outputs:[]}
                 "extra_info": {
                     "split": split,
                     "index": idx,
                     "answer": answer_raw,
-                    "question": solution_raw,
+                    "question": question,
                 },
             }
             return data

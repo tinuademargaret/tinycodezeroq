@@ -164,25 +164,23 @@ reward_model:
     timeout: 1600 
 
 solver_model:
-  enable: False
+  enable: True
   strategy: fsdp
   model:
-    input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical
-    path: ~/models/FsfairX-LLaMA3-RM-v0.1
-    external_lib: ${actor_rollout_ref.model.external_lib}
-    use_remove_padding: False
+    input_tokenizer: deepseek-ai/deepseek-coder-1.3b-instruct  # set this to null if the chat template is identical
+    path: deepseek-ai/deepseek-coder-1.3b-instruct
+    external_lib: null
+    use_remove_padding: True
     fsdp_config:
       wrap_policy:
         min_num_params: 0
-      param_offload: False
+      param_offload: True
       fsdp_size: -1
-  micro_batch_size: null # will be deprecated, use micro_batch_size_per_gpu
-  micro_batch_size_per_gpu: null # set a number
   max_length: null
   ulysses_sequence_parallel_size: 1 # sp size
   use_dynamic_bsz: ${critic.use_dynamic_bsz}
   forward_max_token_len_per_gpu: ${critic.forward_max_token_len_per_gpu}
-  reward_manager: naive
+  reward_manager: prime
   rollout:
     name: vllm
     temperature: 1.0

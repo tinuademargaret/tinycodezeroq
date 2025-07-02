@@ -42,7 +42,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
     trainer.project_name='tinyzerocodeq' \
-    trainer.experiment_name='Qwen2.5-Coder-0.5B_debug' \
+    trainer.experiment_name='deepseek-coder-1.3b-instruct_debug' \
     trainer.n_gpus_per_node=1 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
