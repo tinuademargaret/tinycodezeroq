@@ -196,7 +196,7 @@ solver_model:
     ignore_eos: False
     enforce_eager: True
     free_cache_engine: True
-    load_format: dummy_dtensor
+    load_format: "hf"
     tensor_model_parallel_size: 1
     max_num_batched_tokens: 8192
     max_model_len: null
