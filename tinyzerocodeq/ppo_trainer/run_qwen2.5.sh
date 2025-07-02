@@ -1,8 +1,14 @@
 set -x
 
-taco_train_path=$DATA_DIR/train.parquet
-taco_test_path=$DATA_DIR/test.parquet
+# taco_train_path=$DATA_DIR/train.parquet
+# taco_test_path=$DATA_DIR/test.parquet
 
+
+# train_files="['$taco_train_path']"
+# test_files="['$taco_test_path']"
+
+taco_train_path=/teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+taco_test_path=/teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
 
 train_files="['$taco_train_path']"
 test_files="['$taco_test_path']"
@@ -10,6 +16,7 @@ test_files="['$taco_test_path']"
 python3 -m verl.trainer.main_ppo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
+    data.file_ext="json"\
     data.train_batch_size=1 \
     data.max_prompt_length=256 \
     data.max_response_length=100 \
@@ -42,7 +49,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
     trainer.project_name='tinyzerocodeq' \
-    trainer.experiment_name='deepseek-coder-1.3b-instruct_debug' \
+    trainer.experiment_name='toy_deepseek-coder-1.3b-instruct_debug' \
     trainer.n_gpus_per_node=1 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
