@@ -238,7 +238,7 @@ trainer:
   total_training_steps: null
   project_name: tinyzerocodeq
   experiment_name: Qwen2.5-Coder-0.5B_debug
-  logger: [ 'console', 'wandb' ]
+  logger: [ 'console']
   val_generations_to_log_to_wandb: 10
   nnodes: 1
   n_gpus_per_node: 1
