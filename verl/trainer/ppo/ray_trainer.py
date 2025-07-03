@@ -720,6 +720,8 @@ class RayPPOTrainer(object):
         # Take first N samples after shuffling
         samples = samples[:generations_to_log]
 
+        print(f"VALIDATION LOG LENGTH: {len(samples)}")
+
         # Log to each configured logger
         self.validation_generations_logger.log(
             self.config.trainer.logger, samples, self.global_steps

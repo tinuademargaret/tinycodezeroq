@@ -7,6 +7,9 @@ set -x
 # train_files="['$taco_train_path']"
 # test_files="['$taco_test_path']"
 
+# docker run -it -p 5000:5000 volcengine/sandbox-fusion:server-20241204
+
+
 taco_train_path=/teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
 taco_test_path=/teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
 

@@ -223,6 +223,8 @@ class ValidationGenerationsLogger:
             [],
         )
 
+        print(f"COLUMNS: {columns}")
+
         if not hasattr(self, "validation_table"):
             # Initialize the table on first call
             self.validation_table = wandb.Table(columns=columns)
@@ -234,7 +236,8 @@ class ValidationGenerationsLogger:
         # Add new row with all data
         row_data = []
         row_data.append(step)
-        for sample in samples:
+        for i, sample in enumerate(samples):
+            print(f"SAMPLE {i}: {sample}")
             row_data.extend(sample)
 
         new_table.add_data(*row_data)
