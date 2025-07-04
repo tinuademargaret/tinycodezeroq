@@ -1540,11 +1540,18 @@ class SolverModelWorker(Worker):
         self._is_param_offload = self.config.model.fsdp_config.param_offload
 
         self.system_prompt = (
-            "Given the problem description, write a complete solution in Python that adheres to the following guidelines:"
-            "The solution must:"
-            "- Be enclosed within a Python code block"
-            "- Read the input exactly as described in the problem statement"
-            "- Process the input according to the problem's requirements"
+            "###INSTRUCTION###"
+            "You are a helpful assistant that writes Python programs in response to competitive programming-style problems. Your code is meant to be copy-pasted and tested automatically."
+            "Given the problem description, write a complete solution in Python that satisfies the following requirements:"
+            "The code must be enclosed within a Python code block (starting and ending with triple backticks)."
+            "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
+            "The program must process the input and print the output as required by the problem — nothing more, nothing less."
+            "Do not include any explanatory text or markdown outside the code block."
+            "Only output the code block, nothing else."
+            "###PROBLEM###"
+        )
+        self.response_prompt = (
+            "###RESPONSE###"
         )
 
     def _build_model(self, config):
@@ -1564,6 +1571,12 @@ class SolverModelWorker(Worker):
         # download the checkpoint from hdfs
         log_gpu_memory_usage("Before init Solver from HF AutoModel", logger=logger)
         local_path = copy_to_local(config.model.path)
+
+        input_tokenizer_path = copy_to_local(config.model.input_tokenizer)
+        self.input_tokenizer = hf_tokenizer(
+            input_tokenizer_path,
+            trust_remote_code=config.model.get("trust_remote_code", False),
+        )
 
         self.tokenizer = hf_tokenizer(
             local_path,
@@ -1646,6 +1659,9 @@ class SolverModelWorker(Worker):
         self.system_prompt_ids = self.tokenizer(
             self.system_prompt, add_special_tokens=False
         )["input_ids"]
+        self.response_prompt_ids = self.tokenizer(
+            self.response_prompt, add_special_tokens=False
+        )["input_ids"]
         self.rollout, self.rollout_sharding_manager = self._build_rollout()
 
     def _build_rollout(self):
@@ -1713,6 +1729,10 @@ class SolverModelWorker(Worker):
         # Support all hardwares
         prompts = prompts.to(torch.cuda.current_device())
 
+        solver_prompts = self._switch_chat_template(prompts)
+        solver_prompts.batch = solver_prompts.batch.to(torch.cuda.current_device())
+
+
         if self._is_param_offload:
             load_fsdp_model_to_gpu(self.solver_module)
 
@@ -1726,11 +1746,10 @@ class SolverModelWorker(Worker):
                 self.generation_config.pad_token_id
                 if self.generation_config is not None
                 else self.tokenizer.pad_token_id
-            ),
-            "system_prompt_ids": self.system_prompt_ids,
+            )
         }
 
-        prompts.meta_info.update(meta_info)
+        solver_prompts.meta_info.update(meta_info)
 
         with self.rollout_sharding_manager:
 
@@ -1741,9 +1760,9 @@ class SolverModelWorker(Worker):
                 "After entering solver rollout sharding manager", logger=logger
             )
 
-            prompts = self.rollout_sharding_manager.preprocess_data(data=prompts)
+            solver_prompts = self.rollout_sharding_manager.preprocess_data(data=solver_prompts)
             output = self.rollout.generate_sequences(
-                prompts=prompts,
+                prompts=solver_prompts,
                 solution=True,
             )
 
@@ -1964,91 +1983,94 @@ class SolverModelWorker(Worker):
     #         # rm_score = rm_score[torch.arange(batch_size), eos_mask_idx]
     #         # return rm_score
 
-    # def _expand_to_token_level(self, data: DataProto, scores: torch.Tensor):
-    #     batch_size = data.batch.batch_size[0]
-    #     # expand as token_level_reward
-    #     attention_mask = data.batch["attention_mask"]
-    #     position_ids = data.batch["position_ids"]
-    #     response_length = data.batch["responses"].shape[-1]
-    #     eos_mask_idx = torch.argmax(position_ids * attention_mask, dim=-1)  # (bsz,)
-    #     token_level_scores = torch.zeros_like(
-    #         attention_mask, dtype=scores.dtype
-    #     )  # (bsz, seqlen)
-    #     token_level_scores[torch.arange(batch_size), eos_mask_idx] = scores
+    def _expand_to_token_level(self, data: DataProto, scores: torch.Tensor):
+        batch_size = data.batch.batch_size[0]
+        # expand as token_level_reward
+        attention_mask = data.batch["attention_mask"]
+        position_ids = data.batch["position_ids"]
+        response_length = data.batch["responses"].shape[-1]
+        eos_mask_idx = torch.argmax(position_ids * attention_mask, dim=-1)  # (bsz,)
+        token_level_scores = torch.zeros_like(
+            attention_mask, dtype=scores.dtype
+        )  # (bsz, seqlen)
+        token_level_scores[torch.arange(batch_size), eos_mask_idx] = scores
 
-    #     # select the response part
-    #     token_level_scores = token_level_scores[:, -response_length:]
+        # select the response part
+        token_level_scores = token_level_scores[:, -response_length:]
 
-    #     return token_level_scores
+        return token_level_scores
 
-    # def _switch_chat_template(self, data: DataProto):
-    #     src_max_length = data.batch["attention_mask"].shape[-1]
+    def _switch_chat_template(self, data: DataProto):
+        src_max_length = data.batch["attention_mask"].shape[-1]
 
-    #     src_tokenizer = self.input_tokenizer
-    #     target_tokenizer = self.tokenizer
+        src_tokenizer = self.input_tokenizer
+        target_tokenizer = self.tokenizer
 
-    #     rm_input_ids = []
-    #     rm_attention_mask = []
+        rm_input_ids = []
+        rm_attention_mask = []
 
-    #     for i in range(data.batch.batch_size[0]):
-    #         chat: list = [
-    #             {
-    #                 "role": "system",
-    #                 "content": ("Given the following problem description, write a complete solution in Python that adheres to the following guidelines:"
-    #                             "The solution must be enclosed within a Python code block."
-    #                             "Read the input from standard input (stdin) exactly as described in the problem statement."
-    #                             "Process the input according to the problem's requirements."
-    #                             "Output the result using the print() function exclusively (do not use return statements or stdout.write())."
-    #                             ),
-    #             }
-    #         ]
-    #         # extract response
-    #         response_ids = data.batch["responses"][i]
-    #         response_length = response_ids.shape[-1]
-    #         valid_response_length = data.batch["attention_mask"][i][
-    #             -response_length:
-    #         ].sum()
-    #         valid_response_ids = response_ids[:valid_response_length]
+        for i in range(data.batch.batch_size[0]):
+            chat: list = [
+                {
+                    "role": "system",
+                    "content": ( "###INSTRUCTION###"
+                                "You are a helpful assistant that writes Python programs in response to competitive programming-style problems. Your code is meant to be copy-pasted and tested automatically."
+                                "Given the problem description, write a complete solution in Python that satisfies the following requirements:"
+                                "The code must be enclosed within a Python code block (starting and ending with triple backticks)."
+                                "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
+                                "The program must process the input and print the output as required by the problem — nothing more, nothing less."
+                                "Do not include any explanatory text or markdown outside the code block."
+                                "Only output the code block, nothing else."
+                                ),
+                }
+            ]
+            # extract response
+            response_ids = data.batch["responses"][i]
+            response_length = response_ids.shape[-1]
+            valid_response_length = data.batch["attention_mask"][i][
+                -response_length:
+            ].sum()
+            valid_response_ids = response_ids[:valid_response_length]
 
-    #         # decode
-    #         response = src_tokenizer.decode(valid_response_ids)
-    #         # remove bos and eos
-    #         response = response.replace(src_tokenizer.eos_token, "")
+            # decode
+            response = src_tokenizer.decode(valid_response_ids)
+            # remove bos and eos
+            response = response.replace(src_tokenizer.eos_token, "")
 
-    #         chat.append({"role": "user", "content": response})
+            chat.append({"role": "user", "content": response})
 
-    #         prompt_with_chat_template = target_tokenizer.apply_chat_template(
-    #             chat, add_generation_prompt=False, tokenize=False
-    #         )
-    #         if self.rank == 0 and i == 0:
-    #             # for debugging purpose
-    #             print(f"Switch template. chat: {prompt_with_chat_template}")
+            prompt_with_chat_template = target_tokenizer.apply_chat_template(
+                chat, add_generation_prompt=False, tokenize=False
+            )
+            if self.rank == 0 and i == 0:
+                # for debugging purpose
+                print(f"Switch template. chat: {prompt_with_chat_template}")
 
-    #         # the maximum length is actually determined by the reward model itself
-    #         max_length = self.config.get("max_length", src_max_length)
-    #         if max_length is None:
-    #             max_length = src_max_length
-    #         input_ids, attention_mask = verl_F.tokenize_and_postprocess_data(
-    #             prompt=prompt_with_chat_template,
-    #             tokenizer=target_tokenizer,
-    #             max_length=max_length,
-    #             pad_token_id=target_tokenizer.pad_token_id,
-    #             left_pad=False,  # right padding
-    #             truncation=self.config.get("truncation", "right"),
-    #         )  # truncate from the right
+            # the maximum length is actually determined by the reward model itself
+            max_length = self.config.get("max_length", src_max_length)
+            if max_length is None:
+                max_length = src_max_length
+            input_ids, attention_mask = verl_F.tokenize_and_postprocess_data(
+                prompt=prompt_with_chat_template,
+                tokenizer=target_tokenizer,
+                max_length=max_length,
+                pad_token_id=target_tokenizer.pad_token_id,
+                left_pad=False,  # right padding
+                truncation=self.config.get("truncation", "right"),
+            )  # truncate from the right
 
-    #         rm_input_ids.append(input_ids)
-    #         rm_attention_mask.append(attention_mask)
+            rm_input_ids.append(input_ids)
+            rm_attention_mask.append(attention_mask)
 
-    #     rm_input_ids = torch.cat(rm_input_ids, dim=0)
-    #     rm_attention_mask = torch.cat(rm_attention_mask, dim=0)
+        rm_input_ids = torch.cat(rm_input_ids, dim=0)
+        rm_attention_mask = torch.cat(rm_attention_mask, dim=0)
 
-    #     rm_position_ids = compute_position_id_with_mask(rm_attention_mask)
+        rm_position_ids = compute_position_id_with_mask(rm_attention_mask)
 
-    #     rm_inputs = {
-    #         "input_ids": rm_input_ids,
-    #         "attention_mask": rm_attention_mask,
-    #         "position_ids": rm_position_ids,
-    #     }
+        rm_inputs = {
+            "input_ids": rm_input_ids,
+            "attention_mask": rm_attention_mask,
+            "position_ids": rm_position_ids,
+        }
 
-    #     return DataProto.from_dict(rm_inputs)
+        return DataProto.from_dict(rm_inputs)

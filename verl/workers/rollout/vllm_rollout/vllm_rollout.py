@@ -47,7 +47,7 @@ from vllm import SamplingParams
 
 # NOTE(sgm): add for verl. We can optimize it by making the dataloader yield List[int] without padding.
 def _pre_process_inputs(
-    pad_token_id, prompt_token_ids: torch.Tensor, system_prompt_ids: List[int] = None
+    pad_token_id, prompt_token_ids: torch.Tensor
 ) -> List[int]:
     # remove the left padding in the prompt token_id
     # pad_token_id = self.llm_engine.tokenizer.pad_token_id if self.llm_engine.tokenizer.pad_token_id is not None else self.llm_engine.tokenizer.eos_token_id
@@ -55,8 +55,10 @@ def _pre_process_inputs(
         0
     ]
     token_ids = prompt_token_ids[non_pad_index:].tolist()
-    if system_prompt_ids is not None:
-        token_ids = system_prompt_ids + token_ids
+    # if system_prompt_ids is not None:
+    #     token_ids = system_prompt_ids + token_ids
+    # if response_prompt_ids is not None:
+    #     token_ids = token_ids + response_prompt_ids
     return token_ids
 
 
@@ -90,6 +92,8 @@ class vLLMRollout(BaseRollout):
             tensor_parallel_size <= torch.distributed.get_world_size()
         ), "tensor parallel size should be less than or equal to the world size"
         max_num_batched_tokens = int(self.config.get("max_num_batched_tokens", 8192))
+
+        self.tokenizer = tokenizer
 
         if kwargs.get("train_tp", None) is not None:
             # deployed with megatron
@@ -189,13 +193,13 @@ class vLLMRollout(BaseRollout):
 
         is_solution = kwargs.get("solution", False)
 
-        if is_solution:
-            idx = prompts.batch["responses"]
-        else:
-            idx = prompts.batch["input_ids"]  # (bs, prompt_length)
-            # left-padded attention_mask
-            attention_mask = prompts.batch["attention_mask"]
-            position_ids = prompts.batch["position_ids"]
+        # if is_solution:
+        #     idx = prompts.batch["responses"]
+        # else:
+        idx = prompts.batch["input_ids"]  # (bs, prompt_length)
+        # left-padded attention_mask
+        attention_mask = prompts.batch["attention_mask"]
+        position_ids = prompts.batch["position_ids"]
 
         # used to construct attention_mask
         eos_token_id = prompts.meta_info["eos_token_id"]
@@ -209,7 +213,8 @@ class vLLMRollout(BaseRollout):
                 _pre_process_inputs(
                     self.pad_token_id,
                     idx[i],
-                    system_prompt_ids=prompts.meta_info.get("system_prompt_ids", None),
+                    # system_prompt_ids=prompts.meta_info.get("system_prompt_ids", None),
+                    # response_prompt_ids=prompts.meta_info.get("response_prompt_ids", None),
                 )
             )
 
@@ -234,6 +239,9 @@ class vLLMRollout(BaseRollout):
             }
 
         # users can customize different sampling_params at different run
+        if is_solution:
+            full_prompt_str = self.tokenizer.decode(idx_list[0], skip_special_tokens=True)
+            print(f"FULL PROMPT STR: {full_prompt_str}")    
         with self.update_sampling_params(**kwargs):
             output = self.inference_engine.generate(
                 prompts=None,  # because we have already convert it to prompt token id

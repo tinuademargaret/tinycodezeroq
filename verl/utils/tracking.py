@@ -237,12 +237,13 @@ class ValidationGenerationsLogger:
         row_data = []
         row_data.append(step)
         for i, sample in enumerate(samples):
-            print(f"SAMPLE {i}: {sample}")
+            # print(f"SAMPLE {i}: {sample}")
             row_data.extend(sample)
 
         new_table.add_data(*row_data)
 
         # Update reference and log
+        print(f"LOGGING TO WANDB")
         wandb.log({"val/generations": new_table}, step=step)
         self.validation_table = new_table
 

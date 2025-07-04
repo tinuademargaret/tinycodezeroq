@@ -10,8 +10,8 @@ set -x
 # docker run -it -p 5000:5000 volcengine/sandbox-fusion:server-20241204
 
 
-taco_train_path=/teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
-taco_test_path=/teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+taco_train_path=/home/ubuntu/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+taco_test_path=/home/ubuntu/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
 
 train_files="['$taco_train_path']"
 test_files="['$taco_test_path']"
@@ -52,9 +52,9 @@ python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
     trainer.project_name='tinyzerocodeq' \
-    trainer.experiment_name='toy_deepseek-coder-1.3b-instruct_debug' \
+    trainer.experiment_name='toy_DeepSeek-R1-0528-Qwen3-8B_v0' \
     trainer.n_gpus_per_node=1 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
     trainer.test_freq=10 \
-    trainer.total_epochs=2 $@
+    trainer.total_epochs=1 $@
