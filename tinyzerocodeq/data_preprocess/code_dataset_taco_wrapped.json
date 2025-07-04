@@ -1,1444 +1,1383 @@
 [
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_0(a, b):\n    return a + b"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "3 8\\n2 27\\n1 86\\n0",
-              "3 7\\n2 23\\n1 84\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "11\\n29\\n87\\n",
-            "10\\n25\\n85\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 0,
-        "answer": "Write a python function that takes two integers and returns their sum",
-        "question": "def solution_0(a, b):\n    return a + b"
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_0(a, b):\n    return a + b"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "3 8\\n2 27\\n1 86\\n",
+          "3 7\\n2 23\\n1 84\\n"
+        ],
+        "outputs": [
+          "11\\n29\\n87\\n",
+          "10\\n25\\n85\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_1(a, b):\n    return a - b"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "8 3\\n27 2\\n86 1\\n0",
-              "7 3\\n23 2\\n84 1\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "5\\n25\\n85\\n",
-            "4\\n21\\n83\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 1,
-        "answer": "Write a python function that takes two integers and returns their difference",
-        "question": "def solution_1(a, b):\n    return a - b"
+    "extra_info": {
+      "split": "taco",
+      "index": 0,
+      "answer": "Write a python function that takes two integers and returns their sum",
+      "question": "def solution_0(a, b):\n    return a + b"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_1(a, b):\n    return a - b"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "8 3\\n27 2\\n86 1\\n",
+          "7 3\\n23 2\\n84 1\\n"
+        ],
+        "outputs": [
+          "5\\n25\\n85\\n",
+          "4\\n21\\n83\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_2(a, b):\n    return a * b"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1 2\\n7 2\\n6 1\\n0",
-              "7 3\\n3 2\\n4 1\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "2\\n14\\n6\\n",
-            "21\\n6\\n4\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 2,
-        "answer": "Write a python function that takes two integers and returns their product",
-        "question": "def solution_2(a, b):\n    return a * b"
+    "extra_info": {
+      "split": "taco",
+      "index": 1,
+      "answer": "Write a python function that takes two integers and returns their difference",
+      "question": "def solution_1(a, b):\n    return a - b"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_2(a, b):\n    return a * b"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1 2\\n7 2\\n6 1\\n",
+          "7 3\\n3 2\\n4 1\\n"
+        ],
+        "outputs": [
+          "2\\n14\\n6\\n",
+          "21\\n6\\n4\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_3(a, b):\n    return a / b"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "2 1\\n7 1\\n6 1\\n0",
-              "2 1\\n7 1\\n6 1\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "2\\n7\\n6\\n",
-            "2\\n7\\n6\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 3,
-        "answer": "Write a python function that takes two integers and returns their quotient",
-        "question": "def solution_3(a, b):\n    return a / b"
+    "extra_info": {
+      "split": "taco",
+      "index": 2,
+      "answer": "Write a python function that takes two integers and returns their product",
+      "question": "def solution_2(a, b):\n    return a * b"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_3(a, b):\n    return a / b"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "2 1\\n7 1\\n6 1\\n",
+          "2 1\\n7 1\\n6 1\\n"
+        ],
+        "outputs": [
+          "2\\n7\\n6\\n",
+          "2\\n7\\n6\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_4(a, b):\n    return max(a, b)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "2 1\\n7 1\\n6 1\\n0",
-              "2 1\\n7 1\\n6 1\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "2\\n7\\n6\\n",
-            "2\\n7\\n6\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 4,
-        "answer": "Write a python function that takes two integers and returns the maximum of the two",
-        "question": "def solution_4(a, b):\n    return max(a, b)"
+    "extra_info": {
+      "split": "taco",
+      "index": 3,
+      "answer": "Write a python function that takes two integers and returns their quotient",
+      "question": "def solution_3(a, b):\n    return a / b"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_4(a, b):\n    return max(a, b)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "2 1\\n7 1\\n6 1\\n",
+          "2 1\\n7 1\\n6 1\\n"
+        ],
+        "outputs": [
+          "2\\n7\\n6\\n",
+          "2\\n7\\n6\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_5(a, b):\n    return min(a, b)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "2 1\\n7 1\\n6 1\\n0",
-              "2 1\\n7 1\\n6 1\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "1\\n1\\n1\\n",
-            "1\\n1\\n1\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 5,
-        "answer": "Write a python function that takes two integers and returns the minimum of the two",
-        "question": "def solution_5(a, b):\n    return min(a, b)"
+    "extra_info": {
+      "split": "taco",
+      "index": 4,
+      "answer": "Write a python function that takes two integers and returns the maximum of the two",
+      "question": "def solution_4(a, b):\n    return max(a, b)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_5(a, b):\n    return min(a, b)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "2 1\\n7 1\\n6 1\\n",
+          "2 1\\n7 1\\n6 1\\n"
+        ],
+        "outputs": [
+          "1\\n1\\n1\\n",
+          "1\\n1\\n1\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_6(nums):\n    return sorted(nums)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "4, 7, 5, 2, 1, 3"
-            ]
-          ],
-          "expected_outputs": [
-            "1, 2, 3, 4, 5, 7"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 6,
-        "answer": "Write a python function that takes a list of numbers and returns a sorted list of numbers",
-        "question": "def solution_6(nums):\n    return sorted(nums)"
+    "extra_info": {
+      "split": "taco",
+      "index": 5,
+      "answer": "Write a python function that takes two integers and returns the minimum of the two",
+      "question": "def solution_5(a, b):\n    return min(a, b)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_6(nums):\n    return sorted(nums)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "4, 7, 5, 2, 1, 3"
+        ],
+        "outputs": [
+          "1, 2, 3, 4, 5, 7"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_7(n):\n    return n % 2 == 0"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "2\\n7\\n6\\n0",
-              "2\\n7\\n6\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "True\\nFalse\\nTrue\\n",
-            "True\\nFalse\\nTrue\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 7,
-        "answer": "Write a python function that takes an integer and returns True if it is even, otherwise False",
-        "question": "def solution_7(n):\n    return n % 2 == 0"
+    "extra_info": {
+      "split": "taco",
+      "index": 6,
+      "answer": "Write a python function that takes a list of numbers and returns a sorted list of numbers",
+      "question": "def solution_6(nums):\n    return sorted(nums)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_7(n):\n    return n % 2 == 0"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "2\\n7\\n6\\n",
+          "2\\n7\\n6\\n"
+        ],
+        "outputs": [
+          "True\\nFalse\\nTrue\\n",
+          "True\\nFalse\\nTrue\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_8(n):\n    return n % 2 != 0"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "2\\n7\\n6\\n0",
-              "2\\n7\\n6\\n0"
-            ]
-          ],
-          "expected_outputs": [
-            "False\\nTrue\\nFalse\\n",
-            "False\\nTrue\\nFalse\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 8,
-        "answer": "Write a python function that takes an integer and returns True if it is odd, otherwise False",
-        "question": "def solution_8(n):\n    return n % 2 != 0"
+    "extra_info": {
+      "split": "taco",
+      "index": 7,
+      "answer": "Write a python function that takes an integer and returns True if it is even, otherwise False",
+      "question": "def solution_7(n):\n    return n % 2 == 0"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_8(n):\n    return n % 2 != 0"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [],
+        "outputs": [
+          "False\\nTrue\\nFalse\\n",
+          "False\\nTrue\\nFalse\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_9(nums):\n    return sum(nums)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "4, 7, 5, 2, 1, 3"
-            ]
-          ],
-          "expected_outputs": [
-            "22"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 9,
-        "answer": "Write a python function that takes a list of numbers and returns the sum of the numbers",
-        "question": "def solution_9(nums):\n    return sum(nums)"
+    "extra_info": {
+      "split": "taco",
+      "index": 8,
+      "answer": "Write a python function that takes an integer and returns True if it is odd, otherwise False",
+      "question": "def solution_8(n):\n    return n % 2 != 0"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_9(nums):\n    return sum(nums)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "4, 7, 5, 2, 1, 3"
+        ],
+        "outputs": [
+          "22"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_10(s):\n    return s[::-1]"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "hello"
-            ]
-          ],
-          "expected_outputs": [
-            "olleh"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 10,
-        "answer": "Write a python function that takes a string and returns the reverse of the string",
-        "question": "def solution_10(s):\n    return s[::-1]"
+    "extra_info": {
+      "split": "taco",
+      "index": 9,
+      "answer": "Write a python function that takes a list of numbers and returns the sum of the numbers",
+      "question": "def solution_9(nums):\n    return sum(nums)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_10(s):\n    return s[::-1]"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "hello"
+        ],
+        "outputs": [
+          "olleh"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_11(s):\n    return s == s[::-1]"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "radar"
-            ]
-          ],
-          "expected_outputs": [
-            "True"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 11,
-        "answer": "Write a python function that takes a string and returns True if it is a palindrome, otherwise False",
-        "question": "def solution_11(s):\n    return s == s[::-1]"
+    "extra_info": {
+      "split": "taco",
+      "index": 10,
+      "answer": "Write a python function that takes a string and returns the reverse of the string",
+      "question": "def solution_10(s):\n    return s[::-1]"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_11(s):\n    return s == s[::-1]"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "radar"
+        ],
+        "outputs": [
+          "True"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_12(s):\n    return sum(1 for c in s if c in 'aeiou')"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "hello"
-            ]
-          ],
-          "expected_outputs": [
-            "2"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 12,
-        "answer": "Write a python function that takes a string and returns the number of vowels in the string",
-        "question": "def solution_12(s):\n    return sum(1 for c in s if c in 'aeiou')"
+    "extra_info": {
+      "split": "taco",
+      "index": 11,
+      "answer": "Write a python function that takes a string and returns True if it is a palindrome, otherwise False",
+      "question": "def solution_11(s):\n    return s == s[::-1]"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_12(s):\n    return sum(1 for c in s if c in 'aeiou')"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "hello"
+        ],
+        "outputs": [
+          "2"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_13(n):\n    fact = 1\n    for i in range(1, n+1): fact *= i\n    return fact"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "5"
-            ]
-          ],
-          "expected_outputs": [
-            "120"
+    "extra_info": {
+      "split": "taco",
+      "index": 12,
+      "answer": "Write a python function that takes a string and returns the number of vowels in the string",
+      "question": "def solution_12(s):\n    return sum(1 for c in s if c in 'aeiou')"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_13(n):\n    fact = 1\n    for i in range(1, n+1): fact *= i\n    return fact"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
+            "5"
           ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 13,
-        "answer": "Write a python function that takes an integer and returns the factorial of the number",
-        "question": "def solution_13(n):\n    fact = 1\n    for i in range(1, n+1): fact *= i\n    return fact"
+        ],
+        "outputs": [
+          "120"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_14():\n    a, b = 0, 1\n    for _ in range(5): print(a); a, b = b, a + b"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            []
-          ],
-          "expected_outputs": [
-            "0\\n1\\n1\\n2\\n3\\n"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 14,
-        "answer": "Write a python function that generates the first 5 Fibonacci numbers",
-        "question": "def solution_14():\n    a, b = 0, 1\n    for _ in range(5): print(a); a, b = b, a + b"
+    "extra_info": {
+      "split": "taco",
+      "index": 13,
+      "answer": "Write a python function that takes an integer and returns the factorial of the number",
+      "question": "def solution_13(n):\n    fact = 1\n    for i in range(1, n+1): fact *= i\n    return fact"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_14():\n    a, b = 0, 1\n    for _ in range(5): print(a); a, b = b, a + b"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          ""
+        ],
+        "outputs": [
+          "0\\n1\\n1\\n2\\n3\\n"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_15(lst):\n   return len(lst)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3"
-            ]
-          ],
-          "expected_outputs": [
-            "3"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 15,
-        "answer": "Write a python function that takes a list and returns the length of the list",
-        "question": "def solution_15(lst):\n   return len(lst)"
+    "extra_info": {
+      "split": "taco",
+      "index": 14,
+      "answer": "Write a python function that generates the first 5 Fibonacci numbers",
+      "question": "def solution_14():\n    a, b = 0, 1\n    for _ in range(5): print(a); a, b = b, a + b"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_15(lst):\n   return len(lst)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1, 2, 3"
+        ],
+        "outputs": [
+          "3"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_16(lst, element):\n   return element in lst"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3",
-              "2"
-            ]
-          ],
-          "expected_outputs": [
-            "True"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 16,
-        "answer": "Write a python function that takes a list and an element and returns True if the element is in the list, otherwise False",
-        "question": "def solution_16(lst, element):\n   return element in lst"
+    "extra_info": {
+      "split": "taco",
+      "index": 15,
+      "answer": "Write a python function that takes a list and returns the length of the list",
+      "question": "def solution_15(lst):\n   return len(lst)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_16(lst, element):\n   return element in lst"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1, 2, 3",
+          "2"
+        ],
+        "outputs": [
+          "True"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_17(lst, element):\n    lst.append(element)\n    return lst"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3",
-              "4"
-            ]
-          ],
-          "expected_outputs": [
-            "1, 2, 3, 4"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 17,
-        "answer": "Write a python function that takes a list and an element and appends the element to the list",
-        "question": "def solution_17(lst, element):\n    lst.append(element)\n    return lst"
+    "extra_info": {
+      "split": "taco",
+      "index": 16,
+      "answer": "Write a python function that takes a list and an element and returns True if the element is in the list, otherwise False",
+      "question": "def solution_16(lst, element):\n   return element in lst"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_17(lst, element):\n    lst.append(element)\n    return lst"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1, 2, 3\n4"
+        ],
+        "outputs": [
+          "1, 2, 3, 4"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_18(lst, element):\n    lst.remove(element)\n    return lst"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3",
-              "2"
-            ]
-          ],
-          "expected_outputs": [
-            "1, 3"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 18,
-        "answer": "Write a python function that takes a list and an element and removes the element from the list",
-        "question": "def solution_18(lst, element):\n    lst.remove(element)\n    return lst"
+    "extra_info": {
+      "split": "taco",
+      "index": 17,
+      "answer": "Write a python function that takes a list and an element and appends the element to the list",
+      "question": "def solution_17(lst, element):\n    lst.append(element)\n    return lst"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_18(lst, element):\n    lst.remove(element)\n    return lst"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1, 2, 3\n2"
+        ],
+        "outputs": [
+          "1, 3"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_19(lst):\n    return list(set(lst))"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3, 2"
-            ]
-          ],
-          "expected_outputs": [
-            "1, 2, 3"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 19,
-        "answer": "Write a python function that takes a list and returns a list of unique elements",
-        "question": "def solution_19(lst):\n    return list(set(lst))"
+    "extra_info": {
+      "split": "taco",
+      "index": 18,
+      "answer": "Write a python function that takes a list and an element and removes the element from the list",
+      "question": "def solution_18(lst, element):\n    lst.remove(element)\n    return lst"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_19(lst):\n    return list(set(lst))"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1, 2, 3, 2"
+        ],
+        "outputs": [
+          "1, 2, 3"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_20(lst):\n    return [x**2 for x in lst]"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3"
-            ]
-          ],
-          "expected_outputs": [
-            "1, 4, 9"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 20,
-        "answer": "Write a python function that takes a list and returns a list of the squares of the elements",
-        "question": "def solution_20(lst):\n    return [x**2 for x in lst]"
+    "extra_info": {
+      "split": "taco",
+      "index": 19,
+      "answer": "Write a python function that takes a list and returns a list of unique elements",
+      "question": "def solution_19(lst):\n    return list(set(lst))"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_20(lst):\n    return [x**2 for x in lst]"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1, 2, 3"
+        ],
+        "outputs": [
+          "1, 4, 9"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_21(s):\n    return any(c.isdigit() for c in s)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "abc1"
-            ]
-          ],
-          "expected_outputs": [
-            "True"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 21,
-        "answer": "Write a python function that takes a string and returns True if it contains a digit, otherwise False",
-        "question": "def solution_21(s):\n    return any(c.isdigit() for c in s)"
+    "extra_info": {
+      "split": "taco",
+      "index": 20,
+      "answer": "Write a python function that takes a list and returns a list of the squares of the elements",
+      "question": "def solution_20(lst):\n    return [x**2 for x in lst]"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_21(s):\n    return any(c.isdigit() for c in s)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "abc1"
+        ],
+        "outputs": [
+          "True"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_22(s):\n    return s.lower()"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "HELLO"
-            ]
-          ],
-          "expected_outputs": [
-            "hello"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 22,
-        "answer": "Write a python function that takes a string and returns the lowercase version of the string",
-        "question": "def solution_22(s):\n    return s.lower()"
+    "extra_info": {
+      "split": "taco",
+      "index": 21,
+      "answer": "Write a python function that takes a string and returns True if it contains a digit, otherwise False",
+      "question": "def solution_21(s):\n    return any(c.isdigit() for c in s)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_22(s):\n    return s.lower()"
       }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_23(s):\n    return s.upper()"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "hello"
-            ]
-          ],
-          "expected_outputs": [
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
             "HELLO"
           ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 23,
-        "answer": "Write a python function that takes a string and returns the uppercase version of the string",
-        "question": "def solution_23(s):\n    return s.upper()"
+        ],
+        "outputs": [
+          "hello"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_24(s, old, new):\n    return s.replace(old, new)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "hello world",
-              "world",
-              "there"
-            ]
-          ],
-          "expected_outputs": [
-            "hello there"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 24,
-        "answer": "Write a python function that takes a string, a substring and a new substring and returns the string with the substring replaced by the new substring",
-        "question": "def solution_24(s, old, new):\n    return s.replace(old, new)"
+    "extra_info": {
+      "split": "taco",
+      "index": 22,
+      "answer": "Write a python function that takes a string and returns the lowercase version of the string",
+      "question": "def solution_22(s):\n    return s.lower()"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_23(s):\n    return s.upper()"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "hello"
+        ],
+        "outputs": [
+          "HELLO"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_25(s):\n    return s.split()"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "hello world"
-            ]
-          ],
-          "expected_outputs": [
+    "extra_info": {
+      "split": "taco",
+      "index": 23,
+      "answer": "Write a python function that takes a string and returns the uppercase version of the string",
+      "question": "def solution_23(s):\n    return s.upper()"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_24(s, old, new):\n    return s.replace(old, new)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "hello world\nworld\nthere"
+        ],
+        "outputs": [
+          "hello there"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 24,
+      "answer": "Write a python function that takes a string, a substring and a new substring and returns the string with the substring replaced by the new substring",
+      "question": "def solution_24(s, old, new):\n    return s.replace(old, new)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_25(s):\n    return s.split()"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "hello world"
+        ],
+        "outputs": [
+          [
             "hello",
             "world"
           ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 25,
-        "answer": "Write a python function that takes a string and returns a list of the words in the string",
-        "question": "def solution_25(s):\n    return s.split()"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_26(lst):\n    return ' '.join(lst)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "hello",
-              "world"
-            ]
-          ],
-          "expected_outputs": [
-            "hello world"
+    "extra_info": {
+      "split": "taco",
+      "index": 25,
+      "answer": "Write a python function that takes a string and returns a list of the words in the string",
+      "question": "def solution_25(s):\n    return s.split()"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_26(lst):\n    return ' '.join(lst)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
+            "hello",
+            "world"
           ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 26,
-        "answer": "Write a python function that takes a list of strings and returns a string with the strings joined by a space",
-        "question": "def solution_26(lst):\n    return ' '.join(lst)"
+        ],
+        "outputs": [
+          "hello world"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_27(lst, element):\n    return lst.index(element)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "10, 20, 30",
-              "20"
-            ]
-          ],
-          "expected_outputs": [
-            "1"
+    "extra_info": {
+      "split": "taco",
+      "index": 26,
+      "answer": "Write a python function that takes a list of strings and returns a string with the strings joined by a space",
+      "question": "def solution_26(lst):\n    return ' '.join(lst)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_27(lst, element):\n    return lst.index(element)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "10, 20, 30\n20"
+        ],
+        "outputs": [
+          "1"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 27,
+      "answer": "Write a python function that takes a list and an element and returns the index of the element in the list",
+      "question": "def solution_27(lst, element):\n    return lst.index(element)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_28(lst):\n    return sorted(lst, reverse=True)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
+            1,
+            3,
+            2
           ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 27,
-        "answer": "Write a python function that takes a list and an element and returns the index of the element in the list",
-        "question": "def solution_27(lst, element):\n    return lst.index(element)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_28(lst):\n    return sorted(lst, reverse=True)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 3, 2"
-            ]
-          ],
-          "expected_outputs": [
-            "3, 2, 1"
+        ],
+        "outputs": [
+          [
+            3,
+            2,
+            1
           ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 28,
-        "answer": "Write a python function that takes a list and returns a list of the elements sorted in descending order",
-        "question": "def solution_28(lst):\n    return sorted(lst, reverse=True)"
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_29(lst):\n    return max(lst)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 5, 3"
-            ]
-          ],
-          "expected_outputs": [
+    "extra_info": {
+      "split": "taco",
+      "index": 28,
+      "answer": "Write a python function that takes a list and returns a list of the elements sorted in descending order",
+      "question": "def solution_28(lst):\n    return sorted(lst, reverse=True)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_29(lst):\n    return max(lst)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
+            1,
+            5,
+            3
+          ]
+        ],
+        "outputs": [
+          5
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 29,
+      "answer": "Write a python function that takes a list and returns the maximum element in the list",
+      "question": "def solution_29(lst):\n    return max(lst)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_30(lst):\n    return min(lst)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
+            1,
+            5,
+            3
+          ]
+        ],
+        "outputs": [
+          1
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 30,
+      "answer": "Write a python function that takes a list and returns the minimum element in the list",
+      "question": "def solution_30(lst):\n    return min(lst)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_31(lst):\n    return len(lst) == 0"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        "outputs": [
+          "False"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 31,
+      "answer": "Write a python function that takes a list and returns True if the list is empty, otherwise False",
+      "question": "def solution_31(lst):\n    return len(lst) == 0"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_32(n):\n    return [0]*n"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          [
             "5"
           ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 29,
-        "answer": "Write a python function that takes a list and returns the maximum element in the list",
-        "question": "def solution_29(lst):\n    return max(lst)"
+        ],
+        "outputs": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
       }
     },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_30(lst):\n    return min(lst)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 5, 3"
-            ]
-          ],
-          "expected_outputs": [
-            "1"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 30,
-        "answer": "Write a python function that takes a list and returns the minimum element in the list",
-        "question": "def solution_30(lst):\n    return min(lst)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_31(lst):\n    return len(lst) == 0"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3"
-            ]
-          ],
-          "expected_outputs": [
-            "False"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 31,
-        "answer": "Write a python function that takes a list and returns True if the list is empty, otherwise False",
-        "question": "def solution_31(lst):\n    return len(lst) == 0"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_32(n):\n    return [0]*n"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "5"
-            ]
-          ],
-          "expected_outputs": [
-            "0, 0, 0, 0, 0"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 32,
-        "answer": "Write a python function that takes an integer n and returns a list of n zeros",
-        "question": "def solution_32(n):\n    return [0]*n"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_33():\n    return [i for i in range(1, 6)]"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            []
-          ],
-          "expected_outputs": [
-            "1, 2, 3, 4, 5"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 33,
-        "answer": "Write a python function that returns a list of numbers from the range 1 to 5, inclusive",
-        "question": "def solution_33():\n    return [i for i in range(1, 6)]"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_34(n):\n    return str(n)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "123"
-            ]
-          ],
-          "expected_outputs": [
-            "123"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 34,
-        "answer": "Write a python function that takes an integer and returns a string representation of the integer",
-        "question": "def solution_34(n):\n    return str(n)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_35(s):\n    return int(s)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "123"
-            ]
-          ],
-          "expected_outputs": [
-            "123"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 35,
-        "answer": "Write a python function that takes a string and returns an integer representation of the string",
-        "question": "def solution_35(s):\n    return int(s)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_36(a, b):\n    a, b = b, a\n    return a, b"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1",
-              "2"
-            ]
-          ],
-          "expected_outputs": [
-            "2, 1"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 36,
-        "answer": "Write a python function that takes two variables and swaps their values",
-        "question": "def solution_36(a, b):\n    a, b = b, a\n    return a, b"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_37(year):\n    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "2020"
-            ]
-          ],
-          "expected_outputs": [
-            "True"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 37,
-        "answer": "Write a python function that takes a year and returns True if the year is a leap year, otherwise False",
-        "question": "def solution_37(year):\n    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_38(c):\n    return ord(c)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "A"
-            ]
-          ],
-          "expected_outputs": [
-            "65"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 38,
-        "answer": "Write a python function that takes a character and returns the ASCII value of the character",
-        "question": "def solution_38(c):\n    return ord(c)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_39(n):\n    return chr(n)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "65"
-            ]
-          ],
-          "expected_outputs": [
-            "A"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 39,
-        "answer": "Write a python function that takes an ASCII value and returns the character corresponding to the ASCII value",
-        "question": "def solution_39(n):\n    return chr(n)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_40(s):\n    return len(s.split())"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "hello world"
-            ]
-          ],
-          "expected_outputs": [
-            "2"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 40,
-        "answer": "Write a python function that takes a string and returns the number of words in the string",
-        "question": "def solution_40(s):\n    return len(s.split())"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_41(lst):\n    return lst[::-1]"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "1, 2, 3"
-            ]
-          ],
-          "expected_outputs": [
-            "3, 2, 1"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 41,
-        "answer": "Write a python function that takes a list and returns a list with the elements in reverse order",
-        "question": "def solution_41(lst):\n    return lst[::-1]"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_42(n):\n    return sum(int(d) for d in str(n))"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "123"
-            ]
-          ],
-          "expected_outputs": [
-            "6"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 42,
-        "answer": "Write a python function that takes an integer and returns the sum of the digits of the integer",
-        "question": "def solution_42(n):\n    return sum(int(d) for d in str(n))"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_43(n):\n    return all(n % i != 0 for i in range(2, n))"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "7"
-            ]
-          ],
-          "expected_outputs": [
-            "True"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 43,
-        "answer": "Write a python function that takes an integer and returns True if the integer is a prime number, otherwise False",
-        "question": "def solution_43(n):\n    return all(n % i != 0 for i in range(2, n))"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_44():\n    return [i for i in range(10) if i % 2 == 0]"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            []
-          ],
-          "expected_outputs": [
-            "0, 2, 4, 6, 8"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 44,
-        "answer": "Write a python function that takes a range and returns a list of even numbers in the range",
-        "question": "def solution_44():\n    return [i for i in range(10) if i % 2 == 0]"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_45():\n    return [i for i in range(10) if i % 2 != 0]"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "10"
-            ]
-          ],
-          "expected_outputs": [
-            "1, 3, 5, 7, 9"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 45,
-        "answer": "Write a python function that takes a range and returns a list of odd numbers in the range",
-        "question": "def solution_45():\n    return [i for i in range(10) if i % 2 != 0]"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_46(a, b):\n    return math.gcd(a, b)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "12",
-              "18"
-            ]
-          ],
-          "expected_outputs": [
-            "6"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 46,
-        "answer": "Write a python function that takes two numbers and returns the GCD of the two numbers",
-        "question": "def solution_46(a, b):\n    return math.gcd(a, b)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_47(a, b):\n    return abs(a*b)//math.gcd(a,b)"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "12",
-              "18"
-            ]
-          ],
-          "expected_outputs": [
-            "36"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 47,
-        "answer": "Write a python function that takes two numbers and returns the LCM of the two numbers",
-        "question": "def solution_47(a, b):\n    return abs(a*b)//math.gcd(a,b)"
-      }
-    },
-    {
-      "data_source": "taco",
-      "prompt": [
-        {
-          "role": "user",
-          "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_48(s):\n    return s[0] in 'aeiou'"
-        }
-      ],
-      "ability": "code",
-      "reward_model": {
-        "style": "rule",
-        "ground_truth": {
-          "inputs": [
-            [
-              "apple"
-            ]
-          ],
-          "expected_outputs": [
-            "True"
-          ]
-        }
-      },
-      "extra_info": {
-        "split": "taco",
-        "index": 48,
-        "answer": "Write a python function that takes a string and returns True if the string starts with a vowel, otherwise False",
-        "question": "def solution_48(s):\n    return s[0] in 'aeiou'"
-      }
+    "extra_info": {
+      "split": "taco",
+      "index": 32,
+      "answer": "Write a python function that takes an integer n and returns a list of n zeros",
+      "question": "def solution_32(n):\n    return [0]*n"
     }
-  ]
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_33():\n    return [i for i in range(1, 6)]"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          []
+        ],
+        "outputs": [
+          [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 33,
+      "answer": "Write a python function that returns a list of numbers from the range 1 to 5, inclusive",
+      "question": "def solution_33():\n    return [i for i in range(1, 6)]"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_34(n):\n    return str(n)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          123
+        ],
+        "outputs": [
+          "123"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 34,
+      "answer": "Write a python function that takes an integer and returns a string representation of the integer",
+      "question": "def solution_34(n):\n    return str(n)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_35(s):\n    return int(s)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "123"
+        ],
+        "outputs": [
+          123
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 35,
+      "answer": "Write a python function that takes a string and returns an integer representation of the string",
+      "question": "def solution_35(s):\n    return int(s)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_36(a, b):\n    a, b = b, a\n    return a, b"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1\n2"
+        ],
+        "outputs": [
+          "2, 1"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 36,
+      "answer": "Write a python function that takes two variables and swaps their values",
+      "question": "def solution_36(a, b):\n    a, b = b, a\n    return a, b"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_37(year):\n    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "2020"
+        ],
+        "outputs": [
+          "True"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 37,
+      "answer": "Write a python function that takes a year and returns True if the year is a leap year, otherwise False",
+      "question": "def solution_37(year):\n    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_38(c):\n    return ord(c)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "A"
+        ],
+        "outputs": [
+          "65"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 38,
+      "answer": "Write a python function that takes a character and returns the ASCII value of the character",
+      "question": "def solution_38(c):\n    return ord(c)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_39(n):\n    return chr(n)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "65"
+        ],
+        "outputs": [
+          "A"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 39,
+      "answer": "Write a python function that takes an ASCII value and returns the character corresponding to the ASCII value",
+      "question": "def solution_39(n):\n    return chr(n)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_40(s):\n    return len(s.split())"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "hello world"
+        ],
+        "outputs": [
+          "2"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 40,
+      "answer": "Write a python function that takes a string and returns the number of words in the string",
+      "question": "def solution_40(s):\n    return len(s.split())"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_41(lst):\n    return lst[::-1]"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "1, 2, 3"
+        ],
+        "outputs": [
+          "3, 2, 1"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 41,
+      "answer": "Write a python function that takes a list and returns a list with the elements in reverse order",
+      "question": "def solution_41(lst):\n    return lst[::-1]"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_42(n):\n    return sum(int(d) for d in str(n))"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "123"
+        ],
+        "outputs": [
+          "6"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 42,
+      "answer": "Write a python function that takes an integer and returns the sum of the digits of the integer",
+      "question": "def solution_42(n):\n    return sum(int(d) for d in str(n))"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_43(n):\n    return all(n % i != 0 for i in range(2, n))"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "7"
+        ],
+        "outputs": [
+          "True"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 43,
+      "answer": "Write a python function that takes an integer and returns True if the integer is a prime number, otherwise False",
+      "question": "def solution_43(n):\n    return all(n % i != 0 for i in range(2, n))"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_44(a):\n    return [i for i in range(a) if i % 2 == 0]"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "10"
+        ],
+        "outputs": [
+          "0, 2, 4, 6, 8"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 44,
+      "answer": "Write a python function that takes a range and returns a list of even numbers in the range",
+      "question": "def solution_44(a):\n    return [i for i in range(a) if i % 2 == 0]"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_45(a):\n    return [i for i in range(a) if i % 2 != 0]"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "10"
+        ],
+        "outputs": [
+          "1, 3, 5, 7, 9"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 45,
+      "answer": "Write a python function that takes a range and returns a list of odd numbers in the range",
+      "question": "def solution_45(a):\n    return [i for i in range(a) if i % 2 != 0]"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_46(a, b):\n    return math.gcd(a, b)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "12\n18"
+        ],
+        "outputs": [
+          "6"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 46,
+      "answer": "Write a python function that takes two numbers and returns the GCD of the two numbers",
+      "question": "def solution_46(a, b):\n    return math.gcd(a, b)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_47(a, b):\n    return abs(a*b)//math.gcd(a,b)"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "12\n18"
+        ],
+        "outputs": [
+          "36"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 47,
+      "answer": "Write a python function that takes two numbers and returns the LCM of the two numbers",
+      "question": "def solution_47(a, b):\n    return abs(a*b)//math.gcd(a,b)"
+    }
+  },
+  {
+    "data_source": "taco",
+    "prompt": [
+      {
+        "role": "user",
+        "content": "Given the following solution code, generate a leetcode style programming word problem for it, only return the word problem and nothing else. def solution_48(s):\n    return s[0] in 'aeiou'"
+      }
+    ],
+    "ability": "code",
+    "reward_model": {
+      "style": "rule",
+      "ground_truth": {
+        "inputs": [
+          "apple"
+        ],
+        "outputs": [
+          "True"
+        ]
+      }
+    },
+    "extra_info": {
+      "split": "taco",
+      "index": 48,
+      "answer": "Write a python function that takes a string and returns True if the string starts with a vowel, otherwise False",
+      "question": "def solution_48(s):\n    return s[0] in 'aeiou'"
+    }
+  }
+]

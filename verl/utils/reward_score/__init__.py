@@ -69,8 +69,9 @@ def _default_compute_score(
         raise NotImplementedError
 
     print(f"RES: {res}")
+    return res
 
-    if isinstance(res, (int, float, bool)):
-        return float(res)
-    else:
-        return float(res[0])
+    # if isinstance(res, (int, float, bool)):
+    #     return float(res)
+    # else:
+    #     return float(res[0])

@@ -1772,8 +1772,6 @@ class SolverModelWorker(Worker):
 
         output = output.to("cpu")
 
-        print(f"RETURNED OUTPUT: {output.batch['solutions']}")
-
         return output
 
         # # perform forward computation

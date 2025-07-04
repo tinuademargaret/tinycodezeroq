@@ -35,18 +35,18 @@ async def single_compute_score(
     loop = asyncio.get_running_loop()
     try:
         # Ensure process_completion is called properly
-        tasks = [
-            asyncio.wait_for(
-                loop.run_in_executor(
-                    executor,
-                    partial(
-                        evaluation_func, task, completion, reference, task_extra_info
-                    ),  # Ensure synchronous
-                ),
-                timeout=timeout,
-            )
-        ]
-        return await asyncio.gather(*tasks)
+        result, feedback = await asyncio.wait_for(
+            loop.run_in_executor(
+                executor,
+                partial(
+                    evaluation_func, task, completion, reference, task_extra_info
+                ),  # Ensure synchronous
+            ),
+            timeout=timeout,
+        )
+        print(f"single_compute_score returning: {result} (type: {type(result)})")
+    
+        return result, feedback
     except asyncio.TimeoutError:
         print(f"Timeout occurred for completion: {completion}")
         return None  # Default value for timed-out rows
@@ -80,7 +80,12 @@ async def parallel_compute_score_async(
         ]
         # to prevent very occasional starvation caused by some anomalous programs ( like infinite loop ), the exceptions in async programs will instantly halt the evaluation, and all summoned processes will be killed.
         try:
-            results = await asyncio.gather(*tasks_async, return_exceptions=False)
+            all_results = await asyncio.gather(*tasks_async, return_exceptions=True)
+            print(f"Initial RESULTS: {all_results}")
+            print(f"Type of results: {type(all_results)}")
+            if all_results:
+                print(f"Type of first result: {type(all_results[0])}")
+                print(f"First result: {all_results[0]}")
         except:
             for pid, proc in executor._processes.items():
                 try:
@@ -90,17 +95,35 @@ async def parallel_compute_score_async(
             raise
 
     # Process results
+    results = []
+    feedbacks = []
     for result, completion, reference, task in zip(
-        results, completions, references, tasks
+        all_results, completions, references, tasks
     ):
         if isinstance(result, Exception) or result is None:
             # Handle failed or timed-out tasks
             scores.append(0.0)
-        elif isinstance(result[0], (int, float, bool)):
-            scores.append(float(result[0]))
+            results.append(None)
+            feedbacks.append(None)
+        elif isinstance(result, (int, float, bool)):
+            scores.append(float(result))
+            results.append(result)
+            feedbacks.append(None)
         else:
-            scores.append(float(result[0][0]))
-    return scores
+            # If result is a tuple/list, unpack it
+            if isinstance(result, (tuple, list)) and len(result) >= 2:
+                scores.append(float(result[0]))
+                results.append(result[0])
+                feedbacks.append(result[1])
+            else:
+                scores.append(float(result[0]))
+                results.append(result[0])
+                feedbacks.append(None)
+
+    print(f"SCORES: {scores}")
+    print(f"RESULTS: {feedbacks}")
+    print(f"REFERENCES: {references}")
+    return scores, feedbacks, references
 
 
 async def single_inference(session, url, data):
@@ -203,11 +226,12 @@ class PrimeRewardManager:
             for data_item in data
         ]
         data_sources = data.non_tensor_batch["data_source"]
+        references = None
 
         assert len(generated_solution_str) == len(ground_truth) == len(data_sources)
         print("COMPUTING SCORES.........")
         try:
-            scores = asyncio.run(
+            scores, feedbacks, references = asyncio.run(
                 parallel_compute_score_async(
                     self.compute_score,
                     generated_solution_str,
@@ -220,15 +244,21 @@ class PrimeRewardManager:
         except asyncio.TimeoutError as e:
             print("Global timeout in reward computing! Setting all as 0.")
             scores = [0.0 for _ in range(len(generated_solution_str))]
+            feedbacks = ['timeout'] * len(generated_solution_str)
         # except Exception as e:
         #     print(
         #         f"Unexpected error in batched reward computing. Setting all as 0.: {e}"
         #     )
-        #     scores = [0.0 for _ in range(len(solution_str))]
+        #     scores = [0.0 for _ in range(len(generated_solution_str))]
+        #     feedbacks = [f'{e}' for _ in range(len(generated_solution_str))]
+        finally:
+            if references is None:
+                references = ground_truth
+
         data.batch["acc"] = torch.tensor(
             scores, dtype=torch.float32, device=original_solution_ids.device
         )
-        return scores
+        return scores, feedbacks, references
 
     def __call__(self, data: DataProto):
         """We will expand this function gradually based on the available datasets"""
@@ -261,7 +291,7 @@ class PrimeRewardManager:
         data_sources = data.non_tensor_batch["data_source"]
         extra_info = data.non_tensor_batch.get("extra_info", [None] * len(data_sources))
 
-        scores = self.verify(data)  # should be B
+        scores, feedbacks, references = self.verify(data)  # should be B
 
         for i in range(len(data)):
             data_source = data_sources[i]
@@ -282,4 +312,4 @@ class PrimeRewardManager:
                 )
                 print({generated_problem_str[i]})
 
-        return reward_tensor
+        return reward_tensor, feedbacks, references

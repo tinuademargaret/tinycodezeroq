@@ -217,7 +217,7 @@ class ValidationGenerationsLogger:
         # Create column names for all samples
         columns = ["step"] + sum(
             [
-                [f"input_{i+1}", f"output_{i+1}", f"solution_{i+1}", f"score_{i+1}"]
+                [f"input_{i+1}", f"output_{i+1}", f"solution_{i+1}", f"score_{i+1}", f"result_{i+1}", f"reference_{i+1}"]
                 for i in range(len(samples))
             ],
             [],

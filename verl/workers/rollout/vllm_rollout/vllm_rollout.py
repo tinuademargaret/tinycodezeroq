@@ -241,8 +241,6 @@ class vLLMRollout(BaseRollout):
         # users can customize different sampling_params at different run
         if is_solution:
             full_prompt_str = self.tokenizer.decode(idx_list[0], skip_special_tokens=True)
-            print(f"FULL PROMPT STR: {full_prompt_str}")  
-        print(f"PROMPT TOKEN IDS: {idx_list}")
         with self.update_sampling_params(**kwargs):
             output = self.inference_engine.generate(
                 prompts=None,  # because we have already convert it to prompt token id

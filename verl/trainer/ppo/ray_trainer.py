@@ -701,7 +701,7 @@ class RayPPOTrainer(object):
             )
             self.config.critic.optim.total_training_steps = total_training_steps
 
-    def _maybe_log_val_generations(self, inputs, outputs, solutions, scores):
+    def _maybe_log_val_generations(self, inputs, outputs, solutions, scores, results, references):
         """Log a table of validation samples to the configured logger (wandb or swanlab)"""
 
         generations_to_log = self.config.trainer.val_generations_to_log_to_wandb
@@ -712,7 +712,7 @@ class RayPPOTrainer(object):
         import numpy as np
 
         # Create tuples of (input, output, score) and sort by input text
-        samples = list(zip(inputs, outputs, solutions, scores))
+        samples = list(zip(inputs, outputs, solutions, scores, results, references))
         samples.sort(key=lambda x: x[0])  # Sort by input text
 
         # print(f"VALIDATION LOG LENGTH BEFORE SHUFFLE: {len(samples)}") 
@@ -740,6 +740,8 @@ class RayPPOTrainer(object):
         sample_outputs = []
         sample_solutions = []
         sample_scores = []
+        sample_results = []
+        sample_references = []
 
         # print(f"Validation dataloader length: {len(self.val_dataloader)}")
 
@@ -821,13 +823,18 @@ class RayPPOTrainer(object):
         test_batch = test_batch.union(test_solution)
 
         # evaluate using reward_function
-        reward_tensor = self.val_reward_fn(test_batch)
+        reward_tensor, feedbacks, references = self.val_reward_fn(test_batch)
 
         # Store scores
         scores = reward_tensor.sum(-1).cpu().tolist()
         sample_scores.extend(scores)
 
-        reward_tensor_lst.append(reward_tensor)
+        feedbacks = [str(feedback) for feedback in feedbacks]
+        sample_results.extend(feedbacks)
+        references = [str(ref) for ref in references]
+        sample_references.extend(references)
+
+        reward_tensor_lst.append(reward_tensor)  
         data_source_lst.append(
             test_batch.non_tensor_batch.get(
                 "data_source", ["unknown"] * reward_tensor.shape[0]
@@ -840,6 +847,8 @@ class RayPPOTrainer(object):
             outputs=sample_outputs,
             solutions=sample_solutions,
             scores=sample_scores,
+            results=sample_results,
+            references=sample_references,
         )
 
         reward_tensor = (
@@ -1258,7 +1267,7 @@ class RayPPOTrainer(object):
                             batch = batch.union(reward_tensor)
 
                         # we combine with rule-based rm
-                        reward_tensor = self.reward_fn(batch)  # B, T
+                        reward_tensor, _, _ = self.reward_fn(batch)  # B, T
                         batch.batch["token_level_scores"] = reward_tensor
 
                         # compute rewards. apply_kl_penalty if available
