@@ -93,14 +93,16 @@ def main_task(config):
     OmegaConf.resolve(config)
 
     # download the checkpoint from hdfs
-    local_path = copy_to_local(config.actor_rollout_ref.model.path)
+    actor_local_path = copy_to_local(config.actor_rollout_ref.model.path)
+    solver_local_path = copy_to_local(config.solver_model.model.path)
 
     # instantiate tokenizer
     from verl.utils import hf_tokenizer, hf_processor
 
-    tokenizer = hf_tokenizer(local_path)
+    input_tokenizer = hf_tokenizer(actor_local_path)
+    output_tokenizer = hf_tokenizer(solver_local_path)
     processor = hf_processor(
-        local_path, use_fast=True
+        actor_local_path, use_fast=True
     )  # used for multimodal LLM, could be none
 
     # define worker classes
@@ -195,7 +197,8 @@ def main_task(config):
 
     reward_fn = reward_manager_cls(
         config.reward_model.solver,
-        tokenizer=tokenizer,
+        input_tokenizer=input_tokenizer,
+        output_tokenizer=output_tokenizer,
         num_examine=0,
         compute_score=final_compute_score,
     )
@@ -203,7 +206,8 @@ def main_task(config):
     # Note that we always use function-based RM for validation
     val_reward_fn = reward_manager_cls(
         config.reward_model.solver,
-        tokenizer=tokenizer,
+        input_tokenizer=input_tokenizer,
+        output_tokenizer=output_tokenizer,
         num_examine=1,
         compute_score=final_compute_score,
     )
@@ -214,7 +218,8 @@ def main_task(config):
 
     trainer = RayPPOTrainer(
         config=config,
-        tokenizer=tokenizer,
+        input_tokenizer=input_tokenizer,
+        output_tokenizer=output_tokenizer,
         processor=processor,
         role_worker_mapping=role_worker_mapping,
         resource_pool_manager=resource_pool_manager,

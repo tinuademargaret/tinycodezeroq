@@ -1409,7 +1409,7 @@ class RewardModelWorker(Worker):
                 tokenizer=target_tokenizer,
                 max_length=max_length,
                 pad_token_id=target_tokenizer.pad_token_id,
-                left_pad=False,  # right padding
+                left_pad=True,  # left padding - vLLM expects left-padded inputs
                 truncation=self.config.get("truncation", "right"),
             )  # truncate from the right
 
@@ -1772,6 +1772,8 @@ class SolverModelWorker(Worker):
 
         output = output.to("cpu")
 
+        print(f"RETURNED OUTPUT: {output.batch['solutions']}")
+
         return output
 
         # # perform forward computation
@@ -2013,8 +2015,7 @@ class SolverModelWorker(Worker):
             chat: list = [
                 {
                     "role": "system",
-                    "content": ( "###INSTRUCTION###"
-                                "You are a helpful assistant that writes Python programs in response to competitive programming-style problems. Your code is meant to be copy-pasted and tested automatically."
+                    "content": ( "You are a helpful assistant that writes Python programs in response to competitive programming-style problems. Your code is meant to be copy-pasted and tested automatically."
                                 "Given the problem description, write a complete solution in Python that satisfies the following requirements:"
                                 "The code must be enclosed within a Python code block (starting and ending with triple backticks)."
                                 "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
@@ -2055,7 +2056,7 @@ class SolverModelWorker(Worker):
                 tokenizer=target_tokenizer,
                 max_length=max_length,
                 pad_token_id=target_tokenizer.pad_token_id,
-                left_pad=False,  # right padding
+                left_pad=True,  # left padding - vLLM expects left-padded inputs
                 truncation=self.config.get("truncation", "right"),
             )  # truncate from the right
 

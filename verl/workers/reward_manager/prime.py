@@ -159,8 +159,9 @@ class PrimeRewardManager:
     The Reward Manager used in https://github.com/PRIME-RL/PRIME
     """
 
-    def __init__(self, config, tokenizer, num_examine, compute_score=None) -> None:
-        self.tokenizer = tokenizer
+    def __init__(self, config, input_tokenizer, output_tokenizer, num_examine, compute_score=None) -> None:
+        self.input_tokenizer = input_tokenizer
+        self.output_tokenizer = output_tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
         self.compute_score = compute_score or _default_compute_score
         self.config = config
@@ -172,12 +173,12 @@ class PrimeRewardManager:
         """
 
         generated_problem_ids = data.batch["responses"]
-        generated_problem_str = self.tokenizer.batch_decode(
+        generated_problem_str = self.input_tokenizer.batch_decode(
             generated_problem_ids, skip_special_tokens=True
         )
 
         generated_solution_ids = data.batch["solutions"]
-        generated_solution_str = self.tokenizer.batch_decode(generated_solution_ids)
+        generated_solution_str = self.output_tokenizer.batch_decode(generated_solution_ids)
 
         # """
         # pass question_str to parallel_inference to get solutions
@@ -192,7 +193,7 @@ class PrimeRewardManager:
 
         # batched scoring
         original_solution_ids = data.batch["prompts"]
-        original_solution_str = self.tokenizer.batch_decode(
+        original_solution_str = self.input_tokenizer.batch_decode(
             original_solution_ids, skip_special_tokens=True
         )
 
@@ -253,8 +254,8 @@ class PrimeRewardManager:
             dim=-1
         )
 
-        prompt_str = self.tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
-        generated_problem_str = self.tokenizer.batch_decode(
+        prompt_str = self.input_tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
+        generated_problem_str = self.input_tokenizer.batch_decode(
             response_ids, skip_special_tokens=True
         )
         data_sources = data.non_tensor_batch["data_source"]

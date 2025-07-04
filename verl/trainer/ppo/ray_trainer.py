@@ -421,7 +421,8 @@ class RayPPOTrainer(object):
     def __init__(
         self,
         config,
-        tokenizer,
+        input_tokenizer,
+        output_tokenizer,
         role_worker_mapping: dict[Role, WorkerType],
         resource_pool_manager: ResourcePoolManager,
         ray_worker_group_cls: RayWorkerGroup = RayWorkerGroup,
@@ -432,7 +433,8 @@ class RayPPOTrainer(object):
 
         # assert torch.cuda.is_available(), 'cuda must be available on driver'
 
-        self.tokenizer = tokenizer
+        self.input_tokenizer = input_tokenizer
+        self.output_tokenizer = output_tokenizer
         self.processor = processor
         self.config = config
         self.reward_fn = reward_fn
@@ -622,7 +624,7 @@ class RayPPOTrainer(object):
         self.train_dataset = RLHFDataset(
             parquet_files=self.config.data.train_files,
             file_ext=self.config.data.file_ext,
-            tokenizer=self.tokenizer,
+            tokenizer=self.input_tokenizer,
             processor=self.processor,
             prompt_key=self.config.data.prompt_key,
             image_key=self.config.data.get("image_key", "images"),
@@ -653,7 +655,7 @@ class RayPPOTrainer(object):
         self.val_dataset = RLHFDataset(
             parquet_files=self.config.data.val_files,
             file_ext=self.config.data.file_ext,
-            tokenizer=self.tokenizer,
+            tokenizer=self.input_tokenizer,
             processor=self.processor,
             prompt_key=self.config.data.prompt_key,
             image_key=self.config.data.get("image_key", "images"),
@@ -666,8 +668,8 @@ class RayPPOTrainer(object):
             dataset=self.val_dataset,
             # Validation datasets are sent to inference engines as a whole batch,
             # which will schedule the memory themselves.
-            batch_size=len(self.val_dataset),
-            # batch_size=1,
+            # batch_size=len(self.val_dataset),
+            batch_size=5,
             num_workers=8,
             shuffle=False,
             drop_last=False,
@@ -741,94 +743,96 @@ class RayPPOTrainer(object):
 
         # print(f"Validation dataloader length: {len(self.val_dataloader)}")
 
-        # test_data = next(iter(self.val_dataloader))
+        test_data = next(iter(self.val_dataloader))
 
-        for test_data in self.val_dataloader:
-            test_batch = DataProto.from_single_dict(test_data)
+        # for test_data in self.val_dataloader:
+        test_batch = DataProto.from_single_dict(test_data)
 
-            # we only do validation on rule-based rm
-            if (
-                self.config.reward_model.enable
-                and test_batch[0].non_tensor_batch["reward_model"]["style"] == "model"
-            ):
-                return {}
+        # we only do validation on rule-based rm
+        if (
+            self.config.reward_model.enable
+            and test_batch[0].non_tensor_batch["reward_model"]["style"] == "model"
+        ):
+            return {}
 
-            # Store original inputs
-            input_ids = test_batch.batch["input_ids"]
-            # print(f"input_ids length: {len(input_ids)}")
-            input_texts = [
-                self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids
-            ]
-            sample_inputs.extend(input_texts)
-            
+        # Store original inputs
+        input_ids = test_batch.batch["input_ids"]
+        # print(f"input_ids length: {len(input_ids)}")
+        input_texts = [
+            self.input_tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids
+        ]
+        sample_inputs.extend(input_texts)
+        
 
-            if "multi_modal_inputs" in test_batch.non_tensor_batch.keys():
-                test_gen_batch = test_batch.pop(
-                    batch_keys=["input_ids", "attention_mask", "position_ids"],
-                    non_tensor_batch_keys=[
-                        "raw_prompt_ids",
-                        "multi_modal_data",
-                        "multi_modal_inputs",
-                    ],
-                )
-            else:
-                test_gen_batch = test_batch.pop(
-                    batch_keys=["input_ids", "attention_mask", "position_ids"],
-                    non_tensor_batch_keys=["raw_prompt_ids"],
-                )
-
-            test_gen_batch.meta_info = {
-                "eos_token_id": self.tokenizer.eos_token_id,
-                "pad_token_id": self.tokenizer.pad_token_id,
-                "recompute_log_prob": False,
-                "do_sample": self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
-                "validate": True,
-            }
-            # print(f"test_gen_batch meta info: {test_gen_batch.meta_info}")  
-
-            # pad to be divisible by dp_size
-            test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(
-                test_gen_batch, self.actor_rollout_wg.world_size
+        if "multi_modal_inputs" in test_batch.non_tensor_batch.keys():
+            test_gen_batch = test_batch.pop(
+                batch_keys=["input_ids", "attention_mask", "position_ids"],
+                non_tensor_batch_keys=[
+                    "raw_prompt_ids",
+                    "multi_modal_data",
+                    "multi_modal_inputs",
+                ],
             )
-            test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(
-                test_gen_batch_padded
+        else:
+            test_gen_batch = test_batch.pop(
+                batch_keys=["input_ids", "attention_mask", "position_ids"],
+                non_tensor_batch_keys=["raw_prompt_ids"],
             )
-            # unpad
-            test_output_gen_batch = unpad_dataproto(
-                test_output_gen_batch_padded, pad_size=pad_size
+
+        test_gen_batch.meta_info = {
+            "eos_token_id": self.input_tokenizer.eos_token_id,
+            "pad_token_id": self.input_tokenizer.pad_token_id,
+            "recompute_log_prob": False,
+            "do_sample": self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
+            "validate": True,
+        }
+        # print(f"test_gen_batch meta info: {test_gen_batch.meta_info}")  
+
+        # pad to be divisible by dp_size
+        test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(
+            test_gen_batch, self.actor_rollout_wg.world_size
+        )
+        test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(
+            test_gen_batch_padded
+        )
+        # unpad
+        test_output_gen_batch = unpad_dataproto(
+            test_output_gen_batch_padded, pad_size=pad_size
+        )
+        print("validation generation end")
+
+        # Store generated outputs
+        output_ids = test_output_gen_batch.batch["responses"]
+        output_texts = [
+            self.input_tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids
+        ]
+        sample_outputs.extend(output_texts)
+
+        test_batch = test_batch.union(test_output_gen_batch)
+        # generate solution here too
+        test_solution = self.solver_wg.generate_solution(test_batch)
+        solution_ids = test_solution.batch["solutions"]
+        # print(f"solution_ids: {solution_ids}")
+        solution_texts = [
+            self.output_tokenizer.decode(ids, skip_special_tokens=True) for ids in solution_ids
+        ]
+        print(f"solution_texts: {solution_texts}")
+        sample_solutions.extend(solution_texts)
+        test_batch = test_batch.union(test_solution)
+
+        # evaluate using reward_function
+        reward_tensor = self.val_reward_fn(test_batch)
+
+        # Store scores
+        scores = reward_tensor.sum(-1).cpu().tolist()
+        sample_scores.extend(scores)
+
+        reward_tensor_lst.append(reward_tensor)
+        data_source_lst.append(
+            test_batch.non_tensor_batch.get(
+                "data_source", ["unknown"] * reward_tensor.shape[0]
             )
-            print("validation generation end")
-
-            # Store generated outputs
-            output_ids = test_output_gen_batch.batch["responses"]
-            output_texts = [
-                self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids
-            ]
-            sample_outputs.extend(output_texts)
-
-            test_batch = test_batch.union(test_output_gen_batch)
-            # generate solution here too
-            test_solution = self.solver_wg.generate_solution(test_batch)
-            solution_ids = test_solution.batch["solutions"]
-            solution_texts = [
-                self.tokenizer.decode(ids, skip_special_tokens=True) for ids in solution_ids
-            ]
-            sample_solutions.extend(solution_texts)
-            test_batch = test_batch.union(test_solution)
-
-            # evaluate using reward_function
-            reward_tensor = self.val_reward_fn(test_batch)
-
-            # Store scores
-            scores = reward_tensor.sum(-1).cpu().tolist()
-            sample_scores.extend(scores)
-
-            reward_tensor_lst.append(reward_tensor)
-            data_source_lst.append(
-                test_batch.non_tensor_batch.get(
-                    "data_source", ["unknown"] * reward_tensor.shape[0]
-                )
-            )
+        )
 
         print(f"sample inputs length: {len(sample_inputs)}")
         self._maybe_log_val_generations(

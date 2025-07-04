@@ -49,7 +49,6 @@ def _default_compute_score(
         # Use the passed sandbox_fusion_url if available
         if sandbox_fusion_url:
             from . import sandbox_fusion
-            print("sandbox_fusion_url is not None")
             # Pass the URL directly, ground_truth likely contains test cases here
             res = sandbox_fusion.compute_score(
                 sandbox_fusion_url,

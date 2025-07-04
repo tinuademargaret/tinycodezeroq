@@ -22,7 +22,7 @@ python3 -m verl.trainer.main_ppo \
     data.file_ext="json"\
     data.train_batch_size=1 \
     data.max_prompt_length=256 \
-    data.max_response_length=100 \
+    data.max_response_length=256 \
     data.filter_overlong_prompts=True \
     data.truncation='right' \
     actor_rollout_ref.model.path=deepseek-ai/deepseek-coder-1.3b-instruct \
@@ -52,7 +52,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
     trainer.project_name='tinyzerocodeq' \
-    trainer.experiment_name='toy_DeepSeek-R1-0528-Qwen3-8B_v0' \
+    trainer.experiment_name='toy_DeepSeek-R1-0528-Qwen3-8B_v2' \
     trainer.n_gpus_per_node=1 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \

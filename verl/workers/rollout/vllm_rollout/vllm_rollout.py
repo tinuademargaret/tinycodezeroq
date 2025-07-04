@@ -241,7 +241,8 @@ class vLLMRollout(BaseRollout):
         # users can customize different sampling_params at different run
         if is_solution:
             full_prompt_str = self.tokenizer.decode(idx_list[0], skip_special_tokens=True)
-            print(f"FULL PROMPT STR: {full_prompt_str}")    
+            print(f"FULL PROMPT STR: {full_prompt_str}")  
+        print(f"PROMPT TOKEN IDS: {idx_list}")
         with self.update_sampling_params(**kwargs):
             output = self.inference_engine.generate(
                 prompts=None,  # because we have already convert it to prompt token id
@@ -252,7 +253,9 @@ class vLLMRollout(BaseRollout):
 
             # TODO(sgm): disable logprob when recompute_log_prob is enable
             # if n = 1: (bs, response_length) ; if n > 1: (bs * n, response_length)
+            # print(f"DIRECT VLLMOUTPUT: {output}")
             response = output[0].to(idx.device)
+            # print(f"RESPONSE: {response}")
             # log_probs = output[1].to(idx.device)
 
             if response.shape[1] < self.config.response_length:
@@ -260,7 +263,7 @@ class vLLMRollout(BaseRollout):
                     response, self.config.response_length, self.pad_token_id
                 )
                 # log_probs = pad_sequence_to_length(log_probs, self.config.response_length, self.pad_token_id)
-
+            # print(f"RESPONSE AFTER PAD: {response}")
             # utilize current sampling params
             if self.sampling_params.n > 1 and do_sample:
                 idx = idx.repeat_interleave(self.sampling_params.n, dim=0)
@@ -307,6 +310,7 @@ class vLLMRollout(BaseRollout):
                 batch_size=batch_size,
             )
         else:
+            # print(f"RETURNED RESPONSE: {response}")
             batch = TensorDict(
                 {
                     "solutions": response,
