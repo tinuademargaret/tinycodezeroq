@@ -2037,6 +2037,7 @@ class SolverModelWorker(Worker):
             response = response.replace(src_tokenizer.eos_token, "")
 
             chat.append({"role": "user", "content": response})
+            chat.append({"role": "assistant", "content": ""})
 
             prompt_with_chat_template = target_tokenizer.apply_chat_template(
                 chat, add_generation_prompt=False, tokenize=False
@@ -2055,8 +2056,8 @@ class SolverModelWorker(Worker):
                 max_length=max_length,
                 pad_token_id=target_tokenizer.pad_token_id,
                 left_pad=True,  # left padding - vLLM expects left-padded inputs
-                truncation=self.config.get("truncation", "right"),
-            )  # truncate from the right
+                truncation=self.config.get("truncation", "left"),
+            )  # truncate from the left
 
             rm_input_ids.append(input_ids)
             rm_attention_mask.append(attention_mask)

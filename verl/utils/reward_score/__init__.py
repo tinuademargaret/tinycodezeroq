@@ -61,14 +61,16 @@ def _default_compute_score(
             from . import prime_code
 
             res = prime_code.compute_score(solution_str, ground_truth, continuous=True)
+    elif data_source == "code":
+        from . import coder1
+        res = coder1.compute_score(solution_str, ground_truth, extra_info=extra_info)
     elif data_source in ["hiyouga/geometry3k"]:
         from . import geo3k
 
         res = geo3k.compute_score(solution_str, ground_truth)
     else:
         raise NotImplementedError
-
-    print(f"RES: {res}")
+        
     return res
 
     # if isinstance(res, (int, float, bool)):

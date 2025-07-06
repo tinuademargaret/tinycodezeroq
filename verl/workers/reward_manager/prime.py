@@ -44,7 +44,6 @@ async def single_compute_score(
             ),
             timeout=timeout,
         )
-        print(f"single_compute_score returning: {result} (type: {type(result)})")
     
         return result, feedback
     except asyncio.TimeoutError:
@@ -81,11 +80,6 @@ async def parallel_compute_score_async(
         # to prevent very occasional starvation caused by some anomalous programs ( like infinite loop ), the exceptions in async programs will instantly halt the evaluation, and all summoned processes will be killed.
         try:
             all_results = await asyncio.gather(*tasks_async, return_exceptions=True)
-            print(f"Initial RESULTS: {all_results}")
-            print(f"Type of results: {type(all_results)}")
-            if all_results:
-                print(f"Type of first result: {type(all_results[0])}")
-                print(f"First result: {all_results[0]}")
         except:
             for pid, proc in executor._processes.items():
                 try:
@@ -119,10 +113,6 @@ async def parallel_compute_score_async(
                 scores.append(float(result[0]))
                 results.append(result[0])
                 feedbacks.append(None)
-
-    print(f"SCORES: {scores}")
-    print(f"RESULTS: {feedbacks}")
-    print(f"REFERENCES: {references}")
     return scores, feedbacks, references
 
 
