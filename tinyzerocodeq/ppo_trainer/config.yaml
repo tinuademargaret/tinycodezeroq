@@ -166,12 +166,15 @@ reward_model:
     url: "http://localhost:8080/completion"
     timeout: 1600 
   rollout:
+    dtype: bfloat16 # should align with FSDP
     gpu_memory_utilization: 0.5
     max_model_len: null
     max_num_batched_tokens: 8192
     max_num_seqs: 1024
     enable_chunked_prefill: False
     disable_log_stats: True
+    prompt_length: ${data.max_prompt_length}  # not use for opensource
+    response_length: 1
     # Scoring-specific parameters
     use_float32_for_scoring: false
     batch_size_for_scoring: 32
