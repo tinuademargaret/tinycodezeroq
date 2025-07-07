@@ -253,10 +253,6 @@ class PrimeRewardManager:
     def __call__(self, data: DataProto):
         """We will expand this function gradually based on the available datasets"""
 
-        # If there is rm score, we directly return rm score. Otherwise, we compute via rm_score_fn
-        if "rm_scores" in data.batch.keys():
-            return data.batch["rm_scores"]
-
         # this reward tensor is used to compute the advantages of the actor rollout i.e the generated problem
         # but the scores stored are from the  solution of the generated problem
         reward_tensor = torch.zeros_like(
@@ -283,10 +279,29 @@ class PrimeRewardManager:
 
         scores, feedbacks, references = self.verify(data)  # should be B
 
+        # Combine rm_scores with computed scores if rm_scores exist
+        if "rm_scores" in data.batch.keys():
+            rm_scores = data.batch["rm_scores"]  # Shape: (batch_size, sequence_length)
+            print(f"rm_scores shape: {rm_scores.shape}")
+            
+            # For each sample, we need to get the rm_score at the last valid token position
+            rm_scores_at_valid_positions = []
+            for i in range(len(data)):
+                # Get the rm_score at the last valid response position
+                last_valid_pos = valid_response_length[i].item() - 1
+                rm_score_at_pos = rm_scores[i, prompt_length + last_valid_pos].item()
+                rm_scores_at_valid_positions.append(rm_score_at_pos)
+            
+            # Add rm_scores to computed scores
+            combined_scores = [score + rm_score for score, rm_score in zip(scores, rm_scores_at_valid_positions)]
+            print(f"Combined scores: computed={scores}, rm_scores_at_valid_pos={rm_scores_at_valid_positions}, combined={combined_scores}")
+        else:
+            combined_scores = scores
+
         for i in range(len(data)):
             data_source = data_sources[i]
             # seems like we are storing scores at the last valid position
-            reward_tensor[i, valid_response_length[i].item() - 1] = scores[i]
+            reward_tensor[i, valid_response_length[i].item() - 1] = combined_scores[i]
 
             if data_source not in already_print_data_sources:
                 already_print_data_sources[data_source] = 0

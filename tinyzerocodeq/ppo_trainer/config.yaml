@@ -138,11 +138,12 @@ critic:
   cliprange_value: 0.5
 
 reward_model:
-  enable: False
+  enable: True 
+  use_similarity_score: True
   strategy: fsdp
   model:
     input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical
-    path: ~/models/FsfairX-LLaMA3-RM-v0.1
+    path: Qwen/Qwen3-Embedding-0.6B
     external_lib: ${actor_rollout_ref.model.external_lib}
     use_remove_padding: False
     fsdp_config:
@@ -164,6 +165,22 @@ reward_model:
   solver:
     url: "http://localhost:8080/completion"
     timeout: 1600 
+  rollout:
+    gpu_memory_utilization: 0.5
+    max_model_len: null
+    max_num_batched_tokens: 8192
+    max_num_seqs: 1024
+    enable_chunked_prefill: False
+    disable_log_stats: True
+    # Scoring-specific parameters
+    use_float32_for_scoring: false
+    batch_size_for_scoring: 32
+    name: vllm
+    ignore_eos: True
+    enforce_eager: True
+    free_cache_engine: True
+    load_format: dummy_dtensor
+    tensor_model_parallel_size: 1
 
 solver_model:
   enable: True

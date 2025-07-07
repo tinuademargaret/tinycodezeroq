@@ -63,7 +63,7 @@ def _compute_score(solution_str, ground_truth, extra_info, format_reward=0.1, an
 
     reward_log.append("-" * 16 + "Extracted Code to Execute" + "-" * 16)
     # print(f"GROUND TRUTH: {type(ground_truth)}")
-    # ground_truth = json.loads(ground_truth)
+    ground_truth = json.loads(ground_truth)
 
     t_start = time.time()
 

@@ -144,6 +144,7 @@ class vLLMRollout(BaseRollout):
             disable_log_stats=config.disable_log_stats,
             max_num_batched_tokens=max_num_batched_tokens,
             enable_chunked_prefill=config.enable_chunked_prefill,
+            task=kwargs.get("task", "generate"),
         )
 
         # Offload vllm model to reduce peak memory usage
@@ -213,8 +214,6 @@ class vLLMRollout(BaseRollout):
                 _pre_process_inputs(
                     self.pad_token_id,
                     idx[i],
-                    # system_prompt_ids=prompts.meta_info.get("system_prompt_ids", None),
-                    # response_prompt_ids=prompts.meta_info.get("response_prompt_ids", None),
                 )
             )
 
@@ -321,3 +320,19 @@ class vLLMRollout(BaseRollout):
             self.inference_engine.free_cache_engine()
 
         return DataProto(batch=batch)
+
+    
+    def get_similarity_scores(self, prompts: DataProto) -> List[float]:
+        if self.config.free_cache_engine:
+            self.inference_engine.init_cache_engine()
+        
+        prompt_ids = prompts.batch["responses"]
+        reference_ids = prompts.non_tensor_batch["prompt"]
+
+        prompt_str = self.tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
+        reference_str = self.tokenizer.batch_decode(reference_ids, skip_special_tokens=True)
+
+        scores = self.inference_engine.score(prompt_str, reference_str)
+
+        return scores
+
