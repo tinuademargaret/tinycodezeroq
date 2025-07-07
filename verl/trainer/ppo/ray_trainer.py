@@ -830,6 +830,10 @@ class RayPPOTrainer(object):
             sample_solutions.extend(solution_texts)
             test_batch = test_batch.union(test_solution)
 
+            # get similarity scores from reward model here
+            similarity_scores = self.rm_wg.get_similarity_scores(test_batch, self.input_tokenizer)
+            test_batch = test_batch.union(similarity_scores)
+
             # evaluate using reward_function
             reward_tensor, feedbacks, references = self.val_reward_fn(test_batch)
 

@@ -1559,7 +1559,7 @@ class RewardModelWorker(Worker):
                 
                 prompts = self.rollout_sharding_manager.preprocess_data(data=data)
 
-                scores = self.rollout.get_similarity_scores(prompts)
+                scores = self.rollout.get_similarity_scores(prompts, self.input_tokenizer)
 
                 token_level_scores = self._expand_to_token_level(data, scores)
 

@@ -322,15 +322,14 @@ class vLLMRollout(BaseRollout):
         return DataProto(batch=batch)
 
     
-    def get_similarity_scores(self, prompts: DataProto) -> List[float]:
+    def get_similarity_scores(self, prompts: DataProto, tokenizer) -> List[float]:
         if self.config.free_cache_engine:
             self.inference_engine.init_cache_engine()
         
         prompt_ids = prompts.batch["responses"]
-        reference_ids = prompts.non_tensor_batch["prompt"]
+        prompt_str = tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
 
-        prompt_str = self.tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
-        reference_str = self.tokenizer.batch_decode(reference_ids, skip_special_tokens=True)
+        reference_str = prompts.non_tensor_batch["prompt"]
 
         scores = self.inference_engine.score(prompt_str, reference_str)
 
