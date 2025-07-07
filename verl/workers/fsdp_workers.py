@@ -2013,13 +2013,12 @@ class SolverModelWorker(Worker):
             chat: list = [
                 {
                     "role": "system",
-                    "content": ( "You are a helpful assistant that writes Python programs in response to competitive programming-style problems. Your code is meant to be copy-pasted and tested automatically."
-                                "Given the problem description, write a complete solution in Python that satisfies the following requirements:"
-                                "The code must be enclosed within a Python code block (starting and ending with triple backticks)."
+                    "content": ( "You are a Python programming assistant. When given a programming problem, write ONLY the complete Python solution code."
+                                "Do not explain, do not add comments outside the code, do not continue the problem description."
+                                "Write the complete, runnable Python code that solves the given problem."
                                 "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
                                 "The program must process the input and print the output as required by the problem — nothing more, nothing less."
-                                "Do not include any explanatory text or markdown outside the code block."
-                                "Only output the code block, nothing else."
+                                "Enclose your solution in a Python code block with triple backticks."
                                 ),
                 }
             ]
@@ -2036,8 +2035,10 @@ class SolverModelWorker(Worker):
             # remove bos and eos
             response = response.replace(src_tokenizer.eos_token, "")
 
-            chat.append({"role": "user", "content": response})
-            chat.append({"role": "assistant", "content": ""})
+            # Add clear instruction that this is a problem to solve, not complete
+            problem_instruction = f"Solve this programming problem and provide ONLY the Python code solution:\n\n{response}\n\nProvide your solution:"
+            chat.append({"role": "user", "content": problem_instruction})
+            # Don't add empty assistant message - let the model generate from here
 
             prompt_with_chat_template = target_tokenizer.apply_chat_template(
                 chat, add_generation_prompt=False, tokenize=False
@@ -2058,6 +2059,9 @@ class SolverModelWorker(Worker):
                 left_pad=True,  # left padding - vLLM expects left-padded inputs
                 truncation=self.config.get("truncation", "left"),
             )  # truncate from the left
+
+            final_prompts = target_tokenizer.decode(input_ids[0])
+            print(f"Final prompts: {final_prompts}")
 
             rm_input_ids.append(input_ids)
             rm_attention_mask.append(attention_mask)

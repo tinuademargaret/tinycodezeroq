@@ -219,7 +219,7 @@ class PrimeRewardManager:
         references = None
 
         assert len(generated_solution_str) == len(ground_truth) == len(data_sources)
-        print("COMPUTING SCORES.........")
+        # print("COMPUTING SCORES.........")
         try:
             scores, feedbacks, references = asyncio.run(
                 parallel_compute_score_async(
@@ -230,7 +230,7 @@ class PrimeRewardManager:
                     num_processes=64,
                 )
             )
-            print(f"SCORES: {scores}")
+            # print(f"SCORES: {scores}")
         except asyncio.TimeoutError as e:
             print("Global timeout in reward computing! Setting all as 0.")
             scores = [0.0 for _ in range(len(generated_solution_str))]
@@ -293,13 +293,12 @@ class PrimeRewardManager:
 
             if already_print_data_sources[data_source] < self.num_examine:
                 already_print_data_sources[data_source] += 1
-                print(
-                    f"------------------------------------------------------------PROMPT--------------------------------------------------------------------------------------"
-                )
-                print(prompt_str[i])
-                print(
-                    f"-------------------------------------------------------------Generated Problem---------------------------------------------------------------------------"
-                )
-                print({generated_problem_str[i]})
-
+                # print(
+                #     f"------------------------------------------------------------PROMPT--------------------------------------------------------------------------------------"
+                # )
+                # print(prompt_str[i])
+                # print(
+                #     f"-------------------------------------------------------------Generated Problem---------------------------------------------------------------------------"
+                # )
+                # print({generated_problem_str[i]})
         return reward_tensor, feedbacks, references

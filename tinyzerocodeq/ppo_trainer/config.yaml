@@ -170,7 +170,7 @@ solver_model:
   strategy: fsdp
   model:
     input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical
-    path: deepseek-ai/deepseek-coder-7b-instruct-v1.5
+    path: deepseek-ai/deepseek-coder-7b-instruct
     trust_remote_code: True
     # Qwen/Qwen2.5-Coder-0.5B-Instruct
     # deepseek-ai/deepseek-coder-1.3b-instruct
@@ -200,7 +200,7 @@ solver_model:
     ignore_eos: False
     enforce_eager: True
     free_cache_engine: True
-    load_format: "hf"
+    load_format: "dummy_dtensor"
     tensor_model_parallel_size: 1
     max_num_batched_tokens: 8192
     max_model_len: null
@@ -211,17 +211,17 @@ solver_model:
     log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
     disable_log_stats: True
     enable_chunked_prefill: True # may get higher throughput when set to True. When activated, Please increase max_num_batched_tokens or decrease max_model_len.
-    # should be False for solver model
-    do_sample: False
+    # should be True for solver model to avoid EOS-only outputs
+    do_sample: True
     # number of responses (i.e. num sample times)
     n: 1 # > 1 for grpo
     val_kwargs:
       # sampling parameters for validation
       top_k: -1 # 0 for hf rollout, -1 for vllm rollout
       top_p: 1.0
-      temperature: 0
+      temperature: 1
       n: 1
-      do_sample: False # default eager for validation
+      do_sample: True # default eager for validation
 
 
 custom_reward_function:
@@ -242,6 +242,7 @@ trainer:
   total_epochs: 2
   total_training_steps: null
   project_name: tinyzerocodeq
+  val_only: True
   experiment_name: Qwen2.5-Coder-0.5B_debug
   logger: [ 'console']
   val_generations_to_log_to_wandb: 10

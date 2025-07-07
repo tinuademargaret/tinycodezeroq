@@ -10,8 +10,8 @@ set -x
 # docker run -it -p 5000:5000 volcengine/sandbox-fusion:server-20241204
 
 
-taco_train_path=/home/ubuntu/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
-taco_test_path=/home/ubuntu/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+taco_train_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+taco_test_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
 
 train_files="['$taco_train_path']"
 test_files="['$taco_test_path']"
@@ -20,17 +20,17 @@ python3 -m verl.trainer.main_ppo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.file_ext="json"\
-    data.train_batch_size=1 \
+    data.train_batch_size=4 \
     data.max_prompt_length=256 \
-    data.max_response_length=512 \
+    data.max_response_length=256 \
     data.filter_overlong_prompts=True \
     data.truncation='right' \
-    actor_rollout_ref.model.path=Qwen/Qwen2.5-7B-Instruct-1M \
+    actor_rollout_ref.model.path=Qwen/Qwen2.5-3B-Instruct\
     actor_rollout_ref.model.enable_gradient_checkpointing=False \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.use_dynamic_bsz=True \
-    actor_rollout_ref.actor.ppo_mini_batch_size=1 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=2 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
@@ -43,7 +43,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     critic.optim.lr=1e-5 \
     critic.model.use_remove_padding=True \
-    critic.model.path=Qwen/Qwen2.5-Coder-0.5B \
+    critic.model.path=Qwen/Qwen2-0.5B-Instruct \
     critic.model.enable_gradient_checkpointing=False \
     critic.ppo_micro_batch_size_per_gpu=1 \
     critic.model.fsdp_config.param_offload=False \
@@ -53,7 +53,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.logger=['console','wandb'] \
     trainer.project_name='tinyzerocodeq' \
     trainer.experiment_name='toy_DeepSeek-firejail' \
-    trainer.n_gpus_per_node=1 \
+    trainer.n_gpus_per_node=2 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
     trainer.test_freq=10 \
