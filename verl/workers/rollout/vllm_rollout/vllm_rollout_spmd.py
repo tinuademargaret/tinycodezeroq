@@ -99,7 +99,7 @@ class vLLMRollout(BaseRollout):
 
         self.inference_engine = LLM(
             model=model_path,
-            enable_sleep_mode=True,
+            enable_sleep_mode=config.free_cache_engine,
             tensor_parallel_size=tensor_parallel_size,
             distributed_executor_backend="external_launcher",
             dtype=config.dtype,
@@ -112,6 +112,8 @@ class vLLMRollout(BaseRollout):
             max_num_batched_tokens=max_num_batched_tokens,
             enable_chunked_prefill=config.enable_chunked_prefill,
             enable_prefix_caching=True,
+            task=kwargs.get("task", "generate"),
+            seed=self.config.get("seed", 0)
         )
 
         # Offload vllm model to reduce peak memory usage
@@ -158,6 +160,8 @@ class vLLMRollout(BaseRollout):
         # rebuild vllm cache engine
         if vllm_version in ('0.3.1', '0.4.2', '0.5.4', '0.6.3') and self.config.free_cache_engine:
             self.inference_engine.init_cache_engine()
+
+        is_solution = kwargs.get("solution", False)
 
         idx = prompts.batch['input_ids']  # (bs, prompt_length)
         # left-padded attention_mask
@@ -234,37 +238,58 @@ class vLLMRollout(BaseRollout):
                     non_tensor_batch['multi_modal_inputs'] = _repeat_interleave(non_tensor_batch['multi_modal_inputs'],
                                                                                 self.sampling_params.n)
 
-            seq = torch.cat([idx, response], dim=-1)
+            seq = response if is_solution else torch.cat([idx, response], dim=-1)
 
-        response_length = response.size(1)
-        delta_position_id = torch.arange(1, response_length + 1, device=position_ids.device)
-        delta_position_id = delta_position_id.unsqueeze(0).expand(batch_size, -1)
-        if position_ids.dim() == 3:  # qwen2vl mrope
-            delta_position_id = delta_position_id.view(batch_size, 1, -1).expand(batch_size, 3, -1)
+        if not is_solution:
 
-        # TODO(sgm): fix position_ids on right_pad
-        # prompt: left pad + response: right pad
-        # attention_mask: [0,0,0,0,1,1,1,1, | 1,1,1,0,0,0,0,0]
-        # position_ids:   [0,0,0,0,0,1,2,3, | 4,5,6,7,8,9,10,11]
-        response_position_ids = position_ids[:, -1:] + delta_position_id
-        position_ids = torch.cat([position_ids, response_position_ids], dim=-1)
-        response_attention_mask = get_eos_mask(response_id=response, eos_token=eos_token_id, dtype=attention_mask.dtype)
-        attention_mask = torch.cat((attention_mask, response_attention_mask), dim=-1)
+            response_length = response.size(1)
+            delta_position_id = torch.arange(1, response_length + 1, device=position_ids.device)
+            delta_position_id = delta_position_id.unsqueeze(0).expand(batch_size, -1)
+            if position_ids.dim() == 3:  # qwen2vl mrope
+                delta_position_id = delta_position_id.view(batch_size, 1, -1).expand(batch_size, 3, -1)
 
-        # all the tp ranks should contain the same data here. data in all ranks are valid
-        batch = TensorDict(
-            {
-                'prompts': idx,
-                'responses': response,
-                'input_ids': seq,  # here input_ids become the whole sentences
-                # 'old_log_probs': log_probs, # we will recompute old log prob with actor
-                'attention_mask': attention_mask,
-                'position_ids': position_ids
-            },
-            batch_size=batch_size)
+            # TODO(sgm): fix position_ids on right_pad
+            # prompt: left pad + response: right pad
+            # attention_mask: [0,0,0,0,1,1,1,1, | 1,1,1,0,0,0,0,0]
+            # position_ids:   [0,0,0,0,0,1,2,3, | 4,5,6,7,8,9,10,11]
+            response_position_ids = position_ids[:, -1:] + delta_position_id
+            position_ids = torch.cat([position_ids, response_position_ids], dim=-1)
+            response_attention_mask = get_eos_mask(response_id=response, eos_token=eos_token_id, dtype=attention_mask.dtype)
+            attention_mask = torch.cat((attention_mask, response_attention_mask), dim=-1)
+
+            # all the tp ranks should contain the same data here. data in all ranks are valid
+            batch = TensorDict(
+                {
+                    'prompts': idx,
+                    'responses': response,
+                    'input_ids': seq,  # here input_ids become the whole sentences
+                    # 'old_log_probs': log_probs, # we will recompute old log prob with actor
+                    'attention_mask': attention_mask,
+                    'position_ids': position_ids
+                },
+                batch_size=batch_size)
+        else:
+            batch = TensorDict(
+                {
+                    'solutions': response,
+                },
+                batch_size=batch_size)
 
         # free vllm cache engine
         if vllm_version in ('0.3.1', '0.4.2', '0.5.4', '0.6.3') and self.config.free_cache_engine:
             self.inference_engine.free_cache_engine()
 
         return DataProto(batch=batch, non_tensor_batch=non_tensor_batch)
+
+    def get_similarity_scores(self, prompts: DataProto, tokenizer) -> List[float]:
+        if self.config.free_cache_engine:
+            self.inference_engine.init_cache_engine()
+        
+        prompt_ids = prompts.batch["responses"]
+        prompt_str = tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
+
+        reference_str = prompts.non_tensor_batch["prompt"]
+
+        scores = self.inference_engine.score(prompt_str, reference_str)
+
+        return scores

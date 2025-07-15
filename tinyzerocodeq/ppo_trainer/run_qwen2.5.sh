@@ -10,8 +10,8 @@ taco_test_path=$DATA_DIR/test.parquet
 # docker run -it -p 5000:5000 volcengine/sandbox-fusion:server-20241204
 
 
-# taco_train_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
-# taco_test_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+taco_train_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+taco_test_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
 
 train_files="['$taco_train_path']"
 test_files="['$taco_test_path']"

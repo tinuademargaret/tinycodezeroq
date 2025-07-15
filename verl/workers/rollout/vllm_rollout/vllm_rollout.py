@@ -145,6 +145,7 @@ class vLLMRollout(BaseRollout):
             max_num_batched_tokens=max_num_batched_tokens,
             enable_chunked_prefill=config.enable_chunked_prefill,
             task=kwargs.get("task", "generate"),
+            seed=self.config.get("seed", 0),
         )
 
         # Offload vllm model to reduce peak memory usage
@@ -238,8 +239,8 @@ class vLLMRollout(BaseRollout):
             }
 
         # users can customize different sampling_params at different run
-        if is_solution:
-            full_prompt_str = self.tokenizer.decode(idx_list[0], skip_special_tokens=True)
+        # if is_solution:
+        #     full_prompt_str = self.tokenizer.decode(idx_list[0], skip_special_tokens=True)
         with self.update_sampling_params(**kwargs):
             output = self.inference_engine.generate(
                 prompts=None,  # because we have already convert it to prompt token id
