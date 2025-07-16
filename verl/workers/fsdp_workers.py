@@ -1539,8 +1539,8 @@ class RewardModelWorker(Worker):
 
         data = data.to(torch.cuda.current_device())
 
-        if self._is_param_offload:
-            load_fsdp_model_to_gpu(self.reward_module)
+        # if self._is_param_offload:
+        #     load_fsdp_model_to_gpu(self.reward_module)
 
         if not self.config.use_similarity_score:
         # Support all hardwares

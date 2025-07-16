@@ -135,7 +135,6 @@ class vLLMRollout(BaseRollout):
 
                 self.inference_engine = LLM(
                     model=model_path,
-                    enable_sleep_mode=config.free_cache_engine,
                     tensor_parallel_size=tensor_parallel_size,
                     distributed_executor_backend="external_launcher",
                     dtype=config.dtype,
@@ -198,7 +197,6 @@ class vLLMRollout(BaseRollout):
                     try:
                         self.inference_engine = LLM(
                             model=model_path,
-                            enable_sleep_mode=config.free_cache_engine,
                             tensor_parallel_size=tensor_parallel_size,
                             distributed_executor_backend="external_launcher",
                             dtype=config.dtype,
