@@ -130,23 +130,94 @@ class vLLMRollout(BaseRollout):
                              please increase max_num_batched_tokens or disable chunked prefill"
             )
 
-        self.inference_engine = LLM(
-            actor_module,
-            tokenizer=tokenizer,
-            model_hf_config=model_hf_config,
-            tensor_parallel_size=tensor_parallel_size,
-            dtype=config.dtype,
-            enforce_eager=config.enforce_eager,
-            gpu_memory_utilization=config.gpu_memory_utilization,
-            skip_tokenizer_init=False,
-            max_model_len=max_model_len,
-            load_format=config.load_format,
-            disable_log_stats=config.disable_log_stats,
-            max_num_batched_tokens=max_num_batched_tokens,
-            enable_chunked_prefill=config.enable_chunked_prefill,
-            task=kwargs.get("task", "generate"),
-            seed=self.config.get("seed", 0),
-        )
+        # Add retry logic for Hugging Face Hub rate limiting
+        import time
+        import random
+        max_retries = 5
+        base_delay = 2
+        
+        # Proactively set pooling configuration for embedding models
+        pooling_type = None
+        if hasattr(model_hf_config, 'model_type') and 'embedding' in model_hf_config.model_type.lower():
+            print("Detected embedding model, using mean pooling configuration...")
+            pooling_type = "mean"
+        elif kwargs.get("task") == "score":
+            pooling_type = "mean"
+        
+        for attempt in range(max_retries):
+            try:
+                self.inference_engine = LLM(
+                    actor_module,
+                    tokenizer=tokenizer,
+                    model_hf_config=model_hf_config,
+                    tensor_parallel_size=tensor_parallel_size,
+                    dtype=config.dtype,
+                    enforce_eager=config.enforce_eager,
+                    gpu_memory_utilization=config.gpu_memory_utilization,
+                    skip_tokenizer_init=False,
+                    max_model_len=max_model_len,
+                    load_format=config.load_format,
+                    disable_log_stats=config.disable_log_stats,
+                    max_num_batched_tokens=max_num_batched_tokens,
+                    enable_chunked_prefill=config.enable_chunked_prefill,
+                    task=kwargs.get("task", "generate"),
+                    seed=self.config.get("seed", 0),
+                    # Add pooling configuration if needed
+                    pooling_type=pooling_type
+                )
+                break  # Success, exit retry loop
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str or "Too Many Requests" in error_str:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        print(f"Hugging Face Hub rate limit hit (attempt {attempt + 1}/{max_retries}). Retrying in {delay:.2f} seconds...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        print(f"Failed to initialize LLM after {max_retries} attempts due to rate limiting. Error: {e}")
+                        raise
+                elif "NoneType" in error_str and "items" in error_str and "pooling" in error_str:
+                    # Handle pooling configuration error
+                    print(f"Pooling configuration error detected: {e}")
+                    print("This might be due to model configuration issues. Trying with different settings...")
+                    
+                    # Check if this is an embedding model that needs pooling
+                    # For regular vLLM rollout, we need to check the model_hf_config
+                    if hasattr(model_hf_config, 'model_type') and 'embedding' in model_hf_config.model_type.lower():
+                        print("Detected embedding model, using mean pooling configuration...")
+                        pooling_type = "mean"
+                    else:
+                        pooling_type = "mean" if kwargs.get("task") == "score" else None
+                    
+                    # Try with explicit pooling configuration
+                    try:
+                        self.inference_engine = LLM(
+                            actor_module,
+                            tokenizer=tokenizer,
+                            model_hf_config=model_hf_config,
+                            tensor_parallel_size=tensor_parallel_size,
+                            dtype=config.dtype,
+                            enforce_eager=config.enforce_eager,
+                            gpu_memory_utilization=config.gpu_memory_utilization,
+                            skip_tokenizer_init=False,
+                            max_model_len=max_model_len,
+                            load_format=config.load_format,
+                            disable_log_stats=config.disable_log_stats,
+                            max_num_batched_tokens=max_num_batched_tokens,
+                            enable_chunked_prefill=config.enable_chunked_prefill,
+                            task=kwargs.get("task", "generate"),
+                            seed=self.config.get("seed", 0),
+                            # Add explicit pooling configuration to avoid the error
+                            pooling_type=pooling_type
+                        )
+                        break  # Success, exit retry loop
+                    except Exception as e2:
+                        print(f"Failed to initialize LLM with explicit pooling config: {e2}")
+                        raise e2
+                else:
+                    # Non-rate-limit error, don't retry
+                    raise
 
         # Offload vllm model to reduce peak memory usage
         self.inference_engine.offload_model_weights()

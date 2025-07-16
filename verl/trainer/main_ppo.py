@@ -72,6 +72,21 @@ def run_ppo(config) -> None:
                     "NCCL_DEBUG": "WARN",
                     "VLLM_LOGGING_LEVEL": "WARN",
                     "RAY_DEBUG": "1",
+                    # Add NCCL environment variables to prevent segmentation fault
+                    "NCCL_CUMEM_ENABLE": "0",
+                    "NCCL_IB_DISABLE": "1",
+                    "NCCL_P2P_DISABLE": "1",
+                    "NCCL_SHM_DISABLE": "0",
+                    "NCCL_SOCKET_IFNAME": "lo",
+                    # Add Hugging Face Hub rate limiting configuration
+                    "HF_HUB_DISABLE_TELEMETRY": "1",
+                    "HF_HUB_OFFLINE": "0",
+                    "HF_HUB_ENABLE_HF_TRANSFER": "1",
+                    "HF_HUB_DOWNLOAD_TIMEOUT": "500",
+                    "HF_HUB_RETRY_DELAY": "1",
+                    "HF_HUB_MAX_RETRIES": "3",
+                    # Uncomment and set your HF token for higher rate limits:
+                    # "HF_TOKEN": "your_huggingface_token_here",
                 }
             }
         )

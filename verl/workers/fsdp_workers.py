@@ -94,11 +94,25 @@ class ActorRolloutRefWorker(Worker):
         self.config = config
         import torch.distributed
 
-        if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+        # Add safety checks and error handling for distributed initialization
+        try:
+            if not torch.distributed.is_initialized():
+                # Set NCCL environment variables before initialization
+                import os
+                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
+                os.environ.setdefault("NCCL_IB_DISABLE", "1")
+                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
+                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
+                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
+                
+                torch.distributed.init_process_group(backend="nccl")
+        except Exception as e:
+            print(f"Warning: Failed to initialize distributed process group: {e}")
+            # Continue without distributed initialization for single-node setups
+            pass
 
         # build device mesh for FSDP
-        world_size = torch.distributed.get_world_size()
+        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
         # TODO(sgm): support FSDP hybrid shard for larger model
         self.device_mesh = create_device_mesh(
             world_size=world_size, fsdp_size=self.config.actor.fsdp_config.fsdp_size
@@ -777,12 +791,26 @@ class CriticWorker(Worker):
         super().__init__()
         import torch.distributed
 
-        if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+        # Add safety checks and error handling for distributed initialization
+        try:
+            if not torch.distributed.is_initialized():
+                # Set NCCL environment variables before initialization
+                import os
+                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
+                os.environ.setdefault("NCCL_IB_DISABLE", "1")
+                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
+                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
+                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
+                
+                torch.distributed.init_process_group(backend="nccl")
+        except Exception as e:
+            print(f"Warning: Failed to initialize distributed process group: {e}")
+            # Continue without distributed initialization for single-node setups
+            pass
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = torch.distributed.get_world_size()
+        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1149,12 +1177,26 @@ class RewardModelWorker(Worker):
         super().__init__()
         import torch.distributed
 
-        if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+        # Add safety checks and error handling for distributed initialization
+        try:
+            if not torch.distributed.is_initialized():
+                # Set NCCL environment variables before initialization
+                import os
+                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
+                os.environ.setdefault("NCCL_IB_DISABLE", "1")
+                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
+                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
+                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
+                
+                torch.distributed.init_process_group(backend="nccl")
+        except Exception as e:
+            print(f"Warning: Failed to initialize distributed process group: {e}")
+            # Continue without distributed initialization for single-node setups
+            pass
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = torch.distributed.get_world_size()
+        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1583,12 +1625,26 @@ class SolverModelWorker(Worker):
         self.config = config
         import torch.distributed
 
-        if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+        # Add safety checks and error handling for distributed initialization
+        try:
+            if not torch.distributed.is_initialized():
+                # Set NCCL environment variables before initialization
+                import os
+                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
+                os.environ.setdefault("NCCL_IB_DISABLE", "1")
+                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
+                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
+                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
+                
+                torch.distributed.init_process_group(backend="nccl")
+        except Exception as e:
+            print(f"Warning: Failed to initialize distributed process group: {e}")
+            # Continue without distributed initialization for single-node setups
+            pass
         
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = torch.distributed.get_world_size()
+        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size

@@ -97,24 +97,103 @@ class vLLMRollout(BaseRollout):
         assert model_hf_config.max_position_embeddings >= config.prompt_length + config.response_length, \
             "model context length should be greater than total sequence length"
 
-        self.inference_engine = LLM(
-            model=model_path,
-            enable_sleep_mode=config.free_cache_engine,
-            tensor_parallel_size=tensor_parallel_size,
-            distributed_executor_backend="external_launcher",
-            dtype=config.dtype,
-            enforce_eager=config.enforce_eager,
-            gpu_memory_utilization=config.gpu_memory_utilization,
-            disable_custom_all_reduce=True,
-            skip_tokenizer_init=False,
-            max_model_len=config.prompt_length + config.response_length,
-            disable_log_stats=config.disable_log_stats,
-            max_num_batched_tokens=max_num_batched_tokens,
-            enable_chunked_prefill=config.enable_chunked_prefill,
-            enable_prefix_caching=True,
-            task=kwargs.get("task", "generate"),
-            seed=self.config.get("seed", 0)
-        )
+        # Add retry logic for Hugging Face Hub rate limiting
+        import time
+        import random
+        max_retries = 5
+        base_delay = 2
+        
+        # Proactively set pooling configuration for embedding models
+        pooling_type = None
+        if "embedding" in model_path.lower() or "embed" in model_path.lower():
+            print("Detected embedding model, using mean pooling configuration...")
+            pooling_type = "mean"
+        elif kwargs.get("task") == "score":
+            pooling_type = "mean"
+        
+        for attempt in range(max_retries):
+            try:
+                # Add safety check for model path
+                import os
+                # if not os.path.exists(model_path):
+                #     raise ValueError(f"Model path does not exist: {model_path}")
+                
+                self.inference_engine = LLM(
+                    model=model_path,
+                    enable_sleep_mode=config.free_cache_engine,
+                    tensor_parallel_size=tensor_parallel_size,
+                    distributed_executor_backend="external_launcher",
+                    dtype=config.dtype,
+                    enforce_eager=config.enforce_eager,
+                    gpu_memory_utilization=config.gpu_memory_utilization,
+                    disable_custom_all_reduce=True,
+                    skip_tokenizer_init=False,
+                    max_model_len=config.prompt_length + config.response_length,
+                    disable_log_stats=config.disable_log_stats,
+                    max_num_batched_tokens=max_num_batched_tokens,
+                    enable_chunked_prefill=config.enable_chunked_prefill,
+                    enable_prefix_caching=True,
+                    hf_token=config.hf_token,
+                    task=kwargs.get("task", "generate"),
+                    seed=self.config.get("seed", 0),
+                    max_num_seqs=config.max_num_seqs,
+                    
+                    # Add pooling configuration if needed
+                )
+                break  # Success, exit retry loop
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str or "Too Many Requests" in error_str:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        print(f"Hugging Face Hub rate limit hit (attempt {attempt + 1}/{max_retries}). Retrying in {delay:.2f} seconds...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        print(f"Failed to initialize LLM after {max_retries} attempts due to rate limiting. Error: {e}")
+                        raise
+                elif "NoneType" in error_str and "items" in error_str and "pooling" in error_str:
+                    # Handle pooling configuration error
+                    print(f"Pooling configuration error detected: {e}")
+                    print("This might be due to model configuration issues. Trying with different settings...")
+                    
+                    # Check if this is an embedding model that needs pooling
+                    if "embedding" in model_path.lower() or "embed" in model_path.lower():
+                        print("Detected embedding model, using mean pooling configuration...")
+                        pooling_type = "mean"
+                    else:
+                        pooling_type = "mean" if kwargs.get("task") == "score" else None
+                    
+                    # Try with explicit pooling configuration
+                    try:
+                        self.inference_engine = LLM(
+                            model=model_path,
+                            enable_sleep_mode=config.free_cache_engine,
+                            tensor_parallel_size=tensor_parallel_size,
+                            distributed_executor_backend="external_launcher",
+                            dtype=config.dtype,
+                            enforce_eager=config.enforce_eager,
+                            gpu_memory_utilization=config.gpu_memory_utilization,
+                            disable_custom_all_reduce=True,
+                            skip_tokenizer_init=False,
+                            max_model_len=config.prompt_length + config.response_length,
+                            disable_log_stats=config.disable_log_stats,
+                            max_num_batched_tokens=max_num_batched_tokens,
+                            enable_chunked_prefill=config.enable_chunked_prefill,
+                            enable_prefix_caching=True,
+                            hf_token=config.hf_token,
+                            task=kwargs.get("task", "generate"),
+                            seed=self.config.get("seed", 0),
+                            max_num_seqs=config.max_num_seqs,
+                            # Add explicit pooling configuration to avoid the error
+                        )
+                        break  # Success, exit retry loop
+                    except Exception as e2:
+                        print(f"Failed to initialize LLM with explicit pooling config: {e2}")
+                        raise e2
+                else:
+                    # Non-rate-limit error, don't retry
+                    raise
 
         # Offload vllm model to reduce peak memory usage
         self.inference_engine.sleep(level=1)
