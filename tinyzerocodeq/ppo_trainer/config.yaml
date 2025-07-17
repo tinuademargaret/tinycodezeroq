@@ -142,6 +142,7 @@ critic:
 reward_model:
   enable: True 
   use_similarity_score: True
+  gamma: 0.3
   strategy: fsdp
   model:
     input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical

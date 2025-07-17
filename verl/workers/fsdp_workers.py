@@ -99,12 +99,13 @@ class ActorRolloutRefWorker(Worker):
             if not torch.distributed.is_initialized():
                 # Set NCCL environment variables before initialization
                 import os
+
                 os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
                 os.environ.setdefault("NCCL_IB_DISABLE", "1")
                 os.environ.setdefault("NCCL_P2P_DISABLE", "1")
                 os.environ.setdefault("NCCL_SHM_DISABLE", "0")
                 os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-                
+
                 torch.distributed.init_process_group(backend="nccl")
         except Exception as e:
             print(f"Warning: Failed to initialize distributed process group: {e}")
@@ -112,7 +113,11 @@ class ActorRolloutRefWorker(Worker):
             pass
 
         # build device mesh for FSDP
-        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+        world_size = (
+            torch.distributed.get_world_size()
+            if torch.distributed.is_initialized()
+            else 1
+        )
         # TODO(sgm): support FSDP hybrid shard for larger model
         self.device_mesh = create_device_mesh(
             world_size=world_size, fsdp_size=self.config.actor.fsdp_config.fsdp_size
@@ -796,12 +801,13 @@ class CriticWorker(Worker):
             if not torch.distributed.is_initialized():
                 # Set NCCL environment variables before initialization
                 import os
+
                 os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
                 os.environ.setdefault("NCCL_IB_DISABLE", "1")
                 os.environ.setdefault("NCCL_P2P_DISABLE", "1")
                 os.environ.setdefault("NCCL_SHM_DISABLE", "0")
                 os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-                
+
                 torch.distributed.init_process_group(backend="nccl")
         except Exception as e:
             print(f"Warning: Failed to initialize distributed process group: {e}")
@@ -810,7 +816,11 @@ class CriticWorker(Worker):
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+        world_size = (
+            torch.distributed.get_world_size()
+            if torch.distributed.is_initialized()
+            else 1
+        )
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1182,12 +1192,13 @@ class RewardModelWorker(Worker):
             if not torch.distributed.is_initialized():
                 # Set NCCL environment variables before initialization
                 import os
+
                 os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
                 os.environ.setdefault("NCCL_IB_DISABLE", "1")
                 os.environ.setdefault("NCCL_P2P_DISABLE", "1")
                 os.environ.setdefault("NCCL_SHM_DISABLE", "0")
                 os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-                
+
                 torch.distributed.init_process_group(backend="nccl")
         except Exception as e:
             print(f"Warning: Failed to initialize distributed process group: {e}")
@@ -1196,7 +1207,11 @@ class RewardModelWorker(Worker):
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+        world_size = (
+            torch.distributed.get_world_size()
+            if torch.distributed.is_initialized()
+            else 1
+        )
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1221,6 +1236,9 @@ class RewardModelWorker(Worker):
         )
 
         self.use_remove_padding = self.config.model.get("use_remove_padding", False)
+        self._is_offload_param = self.config.model.fsdp_config.get(
+            "param_offload", False
+        )
 
         # normalize config
         if self.config.micro_batch_size is not None:
@@ -1314,7 +1332,9 @@ class RewardModelWorker(Worker):
     def init_model(self):
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get("external_lib", None))
-        self.reward_module, self.reward_module_config = self._build_model(config=self.config)
+        self.reward_module, self.reward_module_config = self._build_model(
+            config=self.config
+        )
         if self.config.use_similarity_score:
             self.rollout, self.rollout_sharding_manager = self.build_rollout()
 
@@ -1346,7 +1366,7 @@ class RewardModelWorker(Worker):
                 config=self.config.rollout,
                 tokenizer=self.tokenizer,
                 model_hf_config=self.reward_module_config,
-                task="score"
+                task="score",
             )
         elif vllm_mode == "spmd":
             rollout = vLLMRollout(
@@ -1355,7 +1375,7 @@ class RewardModelWorker(Worker):
                 tokenizer=self.tokenizer,
                 model_hf_config=self.reward_module_config,
                 device_mesh=rollout_device_mesh,
-                task="score"
+                task="score",
             )
         else:
             raise NotImplementedError(f"Invalid vllm mode: {vllm_mode}")
@@ -1375,7 +1395,6 @@ class RewardModelWorker(Worker):
         log_gpu_memory_usage("After building vllm sharding manager", logger=logger)
 
         return rollout, rollout_sharding_manager
-
 
     def _forward_micro_batch(self, micro_batch):
         from flash_attn.bert_padding import (
@@ -1539,12 +1558,12 @@ class RewardModelWorker(Worker):
 
         data = data.to(torch.cuda.current_device())
 
-        # if self._is_param_offload:
-        #     load_fsdp_model_to_gpu(self.reward_module)
+        if self._is_param_offload:
+            load_fsdp_model_to_gpu(self.reward_module)
 
         if not self.config.use_similarity_score:
-        # Support all hardwares
-        
+            # Support all hardwares
+
             if self._do_switch_chat_template:
                 rm_data = self._switch_chat_template(data)
 
@@ -1592,16 +1611,19 @@ class RewardModelWorker(Worker):
 
             # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes
             # unshard the root FSDP module
-        
+
         else:
             with self.rollout_sharding_manager:
 
                 if self._is_param_offload:
                     offload_fsdp_model_to_cpu(self.reward_module)
-                
+
                 prompts = self.rollout_sharding_manager.preprocess_data(data=data)
 
-                scores = self.rollout.get_similarity_scores(prompts, self.input_tokenizer)
+                scores = self.rollout.get_similarity_scores(
+                    prompts, self.input_tokenizer
+                )
+                scores = scores * self.config.reward_model.gamma
 
                 token_level_scores = self._expand_to_token_level(data, scores)
 
@@ -1630,21 +1652,25 @@ class SolverModelWorker(Worker):
             if not torch.distributed.is_initialized():
                 # Set NCCL environment variables before initialization
                 import os
+
                 os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
                 os.environ.setdefault("NCCL_IB_DISABLE", "1")
                 os.environ.setdefault("NCCL_P2P_DISABLE", "1")
                 os.environ.setdefault("NCCL_SHM_DISABLE", "0")
                 os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-                
+
                 torch.distributed.init_process_group(backend="nccl")
         except Exception as e:
             print(f"Warning: Failed to initialize distributed process group: {e}")
             # Continue without distributed initialization for single-node setups
             pass
-        
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+        world_size = (
+            torch.distributed.get_world_size()
+            if torch.distributed.is_initialized()
+            else 1
+        )
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1653,7 +1679,6 @@ class SolverModelWorker(Worker):
         )
 
         self._is_param_offload = self.config.model.fsdp_config.param_offload
-
 
     def _build_model(self, config):
         # the following line is necessary
@@ -1781,7 +1806,7 @@ class SolverModelWorker(Worker):
                 actor_module=self.solver_module,
                 config=self.config.rollout,
                 tokenizer=self.tokenizer,
-                model_hf_config=self.solver_module_config
+                model_hf_config=self.solver_module_config,
             )
         elif vllm_mode == "spmd":
             rollout = vLLMRollout(
@@ -1822,7 +1847,6 @@ class SolverModelWorker(Worker):
         solver_prompts = self._switch_chat_template(prompts)
         solver_prompts.batch = solver_prompts.batch.to(torch.cuda.current_device())
 
-
         if self._is_param_offload:
             load_fsdp_model_to_gpu(self.solver_module)
 
@@ -1836,7 +1860,7 @@ class SolverModelWorker(Worker):
                 self.generation_config.pad_token_id
                 if self.generation_config is not None
                 else self.tokenizer.pad_token_id
-            )
+            ),
         }
 
         solver_prompts.meta_info.update(meta_info)
@@ -1850,7 +1874,9 @@ class SolverModelWorker(Worker):
                 "After entering solver rollout sharding manager", logger=logger
             )
 
-            solver_prompts = self.rollout_sharding_manager.preprocess_data(data=solver_prompts)
+            solver_prompts = self.rollout_sharding_manager.preprocess_data(
+                data=solver_prompts
+            )
             output = self.rollout.generate_sequences(
                 prompts=solver_prompts,
                 solution=True,
@@ -1877,13 +1903,14 @@ class SolverModelWorker(Worker):
             chat: list = [
                 {
                     "role": "system",
-                    "content": ( "You are a Python programming assistant. When given a programming problem, write ONLY the complete Python solution code."
-                                "Do not explain, do not add comments outside the code, do not continue the problem description."
-                                "Write the complete, runnable Python code that solves the given problem."
-                                "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
-                                "The program must process the input and print the output as required by the problem — nothing more, nothing less."
-                                "Enclose your solution in a Python code block with triple backticks."
-                                ),
+                    "content": (
+                        "You are a Python programming assistant. When given a programming problem, write ONLY the complete Python solution code."
+                        "Do not explain, do not add comments outside the code, do not continue the problem description."
+                        "Write the complete, runnable Python code that solves the given problem."
+                        "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
+                        "The program must process the input and print the output as required by the problem — nothing more, nothing less."
+                        "Enclose your solution in a Python code block with triple backticks."
+                    ),
                 }
             ]
             # extract response
