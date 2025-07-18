@@ -195,7 +195,7 @@ solver_model:
   strategy: fsdp
   model:
     input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical
-    path: deepseek-ai/deepseek-coder-7b-instruct
+    path: deepseek-ai/deepseek-coder-1.3b-instruct
     trust_remote_code: True
     # Qwen/Qwen2.5-Coder-0.5B-Instruct
     # deepseek-ai/deepseek-coder-1.3b-instruct
@@ -269,7 +269,7 @@ trainer:
   total_epochs: 2
   total_training_steps: null
   project_name: tinyzerocodeq
-  val_only: True
+  val_only: False
   experiment_name: Qwen2.5-Coder-0.5B_debug
   logger: [ 'console']
   val_generations_to_log_to_wandb: 10

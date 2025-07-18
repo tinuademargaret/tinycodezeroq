@@ -34,7 +34,6 @@ dependencies = [
     "codetiming",
     "datasets",
     "dill",
-    "flash-attn==2.6.3",
     "hydra-core",
     "math-verify",
     "numpy",
@@ -45,10 +44,8 @@ dependencies = [
     "pylatexenc",
     "ray>=2.10",
     "tensordict<0.6",
-    "torch==2.4.0",
     "torchdata",
     "transformers",
-    "vllm<=0.6.3",
     'wandb',
 ]
 

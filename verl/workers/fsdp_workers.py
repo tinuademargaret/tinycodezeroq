@@ -1839,7 +1839,7 @@ class SolverModelWorker(Worker):
                     "content": (
                         "You are a Python programming assistant. When given a programming problem, write ONLY the complete Python solution code."
                         "Do not explain, do not add comments outside the code, do not continue the problem description."
-                        "Write the complete, runnable Python code that solves the given problem."
+                        "Write the complete, runnable Python code that solves the given problem including library imports"
                         "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
                         "The program must process the input and print the output as required by the problem — nothing more, nothing less."
                         "Enclose your solution in a Python code block with triple backticks."

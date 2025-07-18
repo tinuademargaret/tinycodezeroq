@@ -37,7 +37,7 @@ def try_extract_solution(solution_str: str) -> Tuple[Optional[str], str]:
     return solution_str
 
 
-CODE_PATTERN = re.compile(r'```(?:\w+)?\n(.*?)\n```', re.DOTALL)
+CODE_PATTERN = re.compile(r'```python(?:\w+)?\n(.*?)\n```', re.DOTALL)
 
 
 def extract_code_from_string(solution_str):
@@ -80,11 +80,16 @@ def _compute_score(solution_str, ground_truth, extra_info, format_reward=0.1, an
             else:  # pytest
                 succ, output = code_exec(solution_code, pytest=ground_truth["pytest"])
             if not succ:
-                reward_log.append("!" * 16 + f"⚠️ Test Execution Failed in {time.time() - t_start:.1f}s" + "!" * 16)
-                reward_log.append(output[:_MAX_CHAR_DISPLAY])
-                reward_log.append("-" * 16 + "Failed Prompt" + "-" * 16)
-                reward_log.append(extra_info["prompt"].replace("\n\n", "\n"))
-                return format_reward, "\n".join(reward_log)
+                try:
+                    reward_log.append("!" * 16 + f"⚠️ Test Execution Failed in {time.time() - t_start:.1f}s" + "!" * 16)
+                    reward_log.append(output[:_MAX_CHAR_DISPLAY])
+                    reward_log.append("-" * 16 + "Failed Prompt" + "-" * 16)
+                    reward_log.append(extra_info["prompt"].replace("\n\n", "\n"))
+                    return format_reward, "\n".join(reward_log)
+                except Exception as e:
+                    reward_log.append("-" * 16 + "Error" + "-" * 16)
+                    reward_log.append(str(e))
+                    return format_reward, "\n".join(reward_log)
         elif "inputs" in ground_truth and "outputs" in ground_truth:
             stdin_list: str = ground_truth["inputs"]
             stdout_list: str = ground_truth["outputs"]
