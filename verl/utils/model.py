@@ -24,6 +24,15 @@ from torch import nn
 from transformers import AutoConfig, AutoModelForCausalLM, PretrainedConfig, MistralForSequenceClassification, GenerationConfig
 from verl.models.registry import ModelRegistry
 
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    GenerationConfig,
+    MistralForSequenceClassification,
+    PretrainedConfig,
+    PreTrainedModel,
+)
+
 
 class LambdaLayer(nn.Module):
 

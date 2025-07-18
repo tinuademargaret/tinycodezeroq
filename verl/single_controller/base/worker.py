@@ -121,34 +121,9 @@ class Worker(WorkerHelper):
 
         ###
         # [SUPPORT AMD: torch]
-        import torch
-        ###
-
-        # Add safety checks for CUDA and NCCL initialization
-        if not torch.cuda.is_available():
-            raise RuntimeError("CUDA is not available on this system")
-        
-        # Set NCCL environment variables to prevent segmentation faults
-        os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
-        os.environ.setdefault("NCCL_IB_DISABLE", "1")
-        os.environ.setdefault("NCCL_P2P_DISABLE", "1")
-        os.environ.setdefault("NCCL_SHM_DISABLE", "0")
-        os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-        os.environ.setdefault("NCCL_DEBUG", "WARN")
-        
-        # Set Hugging Face Hub environment variables to handle rate limiting
-        os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
-        os.environ.setdefault("HF_HUB_OFFLINE", "0")
-        os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
-        os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "500")
-        os.environ.setdefault("HF_HUB_RETRY_DELAY", "1")
-        os.environ.setdefault("HF_HUB_MAX_RETRIES", "3")
-
-        ###
-        # [SUPPORT AMD: torch]
-        if "AMD" in torch.cuda.get_device_name():
-            os.environ['CUDA_VISIBLE_DEVICES'] = os.environ.get('ROCR_VISIBLE_DEVICES')
-            os.environ['LOCAL_RANK'] = os.environ.get('RAY_LOCAL_RANK')
+        # if "AMD" in torch.cuda.get_device_name():
+        #     os.environ['CUDA_VISIBLE_DEVICES'] = os.environ.get('ROCR_VISIBLE_DEVICES')
+        #     os.environ['LOCAL_RANK'] = os.environ.get('RAY_LOCAL_RANK')
         ###
 
         world_size = int(os.environ['WORLD_SIZE'])
@@ -163,16 +138,16 @@ class Worker(WorkerHelper):
         local_rank = int(os.getenv("LOCAL_RANK", "0"))
 
         ###
-        # [SUPPORT AMD: torch]
-        if "AMD" in torch.cuda.get_device_name():
-            self.local_rank = int(os.environ['LOCAL_RANK'])
-        ###
+        # # [SUPPORT AMD: torch]
+        # if "AMD" in torch.cuda.get_device_name():
+        #     self.local_rank = int(os.environ['LOCAL_RANK'])
+        # ###
 
-        ###
-        # [SUPPORT AMD: torch]
-        if "AMD" in torch.cuda.get_device_name():
-            cuda_visible_devices = str(local_rank)
-        ###
+        # ###
+        # # [SUPPORT AMD: torch]
+        # if "AMD" in torch.cuda.get_device_name():
+        #     cuda_visible_devices = str(local_rank)
+        # ###
 
         store = {
             '_world_size': world_size,
@@ -191,8 +166,8 @@ class Worker(WorkerHelper):
         ###
         # [SUPPORT AMD: torch]
         # torch.cuda.set_device(local_rank)
-        if "AMD" in torch.cuda.get_device_name():
-            torch.cuda.set_device(int(cuda_visible_devices))
+        # if "AMD" in torch.cuda.get_device_name():
+        #     torch.cuda.set_device(int(cuda_visible_devices))
         ###
 
     def _configure_with_meta(self, meta: WorkerMeta):

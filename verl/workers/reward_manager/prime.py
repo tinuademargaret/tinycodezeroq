@@ -266,6 +266,7 @@ class PrimeRewardManager:
         prompt_length = prompt_ids.shape[-1]
 
         response_ids = data.batch["responses"]
+        response_length = data.batch["responses"].shape[-1]
         valid_response_length = data.batch["attention_mask"][:, prompt_length:].sum(
             dim=-1
         )
@@ -282,19 +283,18 @@ class PrimeRewardManager:
         # Combine rm_scores with computed scores if rm_scores exist
         if "rm_scores" in data.batch.keys():
             rm_scores = data.batch["rm_scores"]  # Shape: (batch_size, sequence_length)
-            print(f"rm_scores shape: {rm_scores.shape}")
             
             # For each sample, we need to get the rm_score at the last valid token position
             rm_scores_at_valid_positions = []
             for i in range(len(data)):
                 # Get the rm_score at the last valid response position
-                last_valid_pos = valid_response_length[i].item() - 1
-                rm_score_at_pos = rm_scores[i, prompt_length + last_valid_pos].item()
+                last_valid_pos = response_length-1
+                rm_score_at_pos = rm_scores[i, last_valid_pos].item()
                 rm_scores_at_valid_positions.append(rm_score_at_pos)
             
             # Add rm_scores to computed scores
             combined_scores = [score + rm_score for score, rm_score in zip(scores, rm_scores_at_valid_positions)]
-            print(f"Combined scores: computed={scores}, rm_scores_at_valid_pos={rm_scores_at_valid_positions}, combined={combined_scores}")
+            
         else:
             combined_scores = scores
 

@@ -63,68 +63,74 @@ def _compute_score(solution_str, ground_truth, extra_info, format_reward=0.1, an
 
     reward_log.append("-" * 16 + "Extracted Code to Execute" + "-" * 16)
     # print(f"GROUND TRUTH: {type(ground_truth)}")
-    ground_truth = json.loads(ground_truth)
+    try:
+        ground_truth = json.loads(ground_truth)
 
-    t_start = time.time()
+        t_start = time.time()
 
-    # log code
-    if "functional" in ground_truth:
-        reward_log.append(solution_code + "\n" + ground_truth["functional"])
-    else:
-        reward_log.append(solution_code)
-
-    if "pytest" in ground_truth or "functional" in ground_truth:
+        # log code
         if "functional" in ground_truth:
-            succ, output = code_exec(solution_code + "\n" + ground_truth["functional"])
-        else:  # pytest
-            succ, output = code_exec(solution_code, pytest=ground_truth["pytest"])
-        if not succ:
-            reward_log.append("!" * 16 + f"⚠️ Test Execution Failed in {time.time() - t_start:.1f}s" + "!" * 16)
-            reward_log.append(output[:_MAX_CHAR_DISPLAY])
-            reward_log.append("-" * 16 + "Failed Prompt" + "-" * 16)
-            reward_log.append(extra_info["prompt"].replace("\n\n", "\n"))
-            return format_reward, "\n".join(reward_log)
-    elif "inputs" in ground_truth and "outputs" in ground_truth:
-        stdin_list: str = ground_truth["inputs"]
-        stdout_list: str = ground_truth["outputs"]
+            reward_log.append(solution_code + "\n" + ground_truth["functional"])
+        else:
+            reward_log.append(solution_code)
 
-        # Add parallelism
-        all_passed = True
-        failed_output = None
-        failed_stdin = None
-        failed_stdout = None
+        if "pytest" in ground_truth or "functional" in ground_truth:
+            if "functional" in ground_truth:
+                succ, output = code_exec(solution_code + "\n" + ground_truth["functional"])
+            else:  # pytest
+                succ, output = code_exec(solution_code, pytest=ground_truth["pytest"])
+            if not succ:
+                reward_log.append("!" * 16 + f"⚠️ Test Execution Failed in {time.time() - t_start:.1f}s" + "!" * 16)
+                reward_log.append(output[:_MAX_CHAR_DISPLAY])
+                reward_log.append("-" * 16 + "Failed Prompt" + "-" * 16)
+                reward_log.append(extra_info["prompt"].replace("\n\n", "\n"))
+                return format_reward, "\n".join(reward_log)
+        elif "inputs" in ground_truth and "outputs" in ground_truth:
+            stdin_list: str = ground_truth["inputs"]
+            stdout_list: str = ground_truth["outputs"]
 
-        with ThreadPoolExecutor(max_workers=min(8, len(stdin_list))) as executor:
-            futures = [
-                executor.submit(remote_check_stdio, solution_code, stdin, stdout)
-                for stdin, stdout in zip(stdin_list, stdout_list)
-            ]
-            for future in as_completed(futures): 
-                succ, output, stdin, stdout = future.result()
-            
-                if succ is False or output.strip() != stdout.strip():
-                    try:
-                        all_passed = False
-                        failed_output = output[:_MAX_CHAR_DISPLAY]  # truncate output to print
-                        failed_stdin = stdin
-                        failed_stdout = stdout
-                        reward_log.append("!" * 16 + f"⚠️ Test Execution Failed in {time.time() - t_start:.1f}s" + "!" * 16)
-                        reward_log.append(f"🔎Input: {repr(failed_stdin)}")
-                        reward_log.append(f"✅Expected: {repr(failed_stdout.strip())}")
-                        reward_log.append(
-                            f"❌Actual: {failed_output if failed_output.startswith(_ERROR_MSG_PREFIX) else repr(failed_output.strip())}")
-                        reward_log.append("-" * 16 + "Failed Prompt" + "-" * 16)
-                        reward_log.append(extra_info["prompt"].replace("\n\n", "\n"))
-                        return format_reward, "\n".join(reward_log)
-                    except Exception as e:
-                        return format_reward, "\n".join(reward_log)
-    else:
-        raise ValueError(
-            f"Current supports for ground-truth are ['functional', 'inputs/outputs'] -- No idea what's: {ground_truth = }"
-        )
+            # Add parallelism
+            all_passed = True
+            failed_output = None
+            failed_stdin = None
+            failed_stdout = None
 
-    # If we reach here, all tests passed
-    reward_log.append("+" * 16 + "Test Execution Passed!" + "+" * 16)
+            with ThreadPoolExecutor(max_workers=min(8, len(stdin_list))) as executor:
+                futures = [
+                    executor.submit(remote_check_stdio, solution_code, stdin, stdout)
+                    for stdin, stdout in zip(stdin_list, stdout_list)
+                ]
+                for future in as_completed(futures): 
+                    succ, output, stdin, stdout = future.result()
+                
+                    if succ is False or output.strip() != stdout.strip():
+                        try:
+                            all_passed = False
+                            failed_output = output[:_MAX_CHAR_DISPLAY]  # truncate output to print
+                            failed_stdin = stdin
+                            failed_stdout = stdout
+                            reward_log.append("!" * 16 + f"⚠️ Test Execution Failed in {time.time() - t_start:.1f}s" + "!" * 16)
+                            reward_log.append(f"🔎Input: {repr(failed_stdin)}")
+                            reward_log.append(f"✅Expected: {repr(failed_stdout.strip())}")
+                            reward_log.append(
+                                f"❌Actual: {failed_output if failed_output.startswith(_ERROR_MSG_PREFIX) else repr(failed_output.strip())}")
+                            reward_log.append("-" * 16 + "Failed Prompt" + "-" * 16)
+                            reward_log.append(extra_info["prompt"].replace("\n\n", "\n"))
+                            return format_reward, "\n".join(reward_log)
+                        except Exception as e:
+                            return format_reward, "\n".join(reward_log)
+        else:
+            raise ValueError(
+                f"Current supports for ground-truth are ['functional', 'inputs/outputs'] -- No idea what's: {ground_truth = }"
+            )
+
+        # If we reach here, all tests passed
+        reward_log.append("+" * 16 + "Test Execution Passed!" + "+" * 16)
+    except Exception as e:
+        reward_log.append("-" * 16 + "Error" + "-" * 16)
+        reward_log.append(str(e))
+        reward_log.append("-" * 16 + "Failed Prompt" + "-" * 16)
+        reward_log.append(extra_info["prompt"].replace("\n\n", "\n"))
     return format_reward + answer_reward, "\n".join(reward_log)
 
 

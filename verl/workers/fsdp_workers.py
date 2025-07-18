@@ -94,30 +94,11 @@ class ActorRolloutRefWorker(Worker):
         self.config = config
         import torch.distributed
 
-        # Add safety checks and error handling for distributed initialization
-        try:
-            if not torch.distributed.is_initialized():
-                # Set NCCL environment variables before initialization
-                import os
-
-                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
-                os.environ.setdefault("NCCL_IB_DISABLE", "1")
-                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
-                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
-                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-
-                torch.distributed.init_process_group(backend="nccl")
-        except Exception as e:
-            print(f"Warning: Failed to initialize distributed process group: {e}")
-            # Continue without distributed initialization for single-node setups
-            pass
+        if not torch.distributed.is_initialized():
+            torch.distributed.init_process_group(backend="nccl")
 
         # build device mesh for FSDP
-        world_size = (
-            torch.distributed.get_world_size()
-            if torch.distributed.is_initialized()
-            else 1
-        )
+        world_size = torch.distributed.get_world_size()
         # TODO(sgm): support FSDP hybrid shard for larger model
         self.device_mesh = create_device_mesh(
             world_size=world_size, fsdp_size=self.config.actor.fsdp_config.fsdp_size
@@ -487,6 +468,7 @@ class ActorRolloutRefWorker(Worker):
                 module=self.actor_module_fsdp,
                 inference_engine=rollout.inference_engine,
                 model_config=self.actor_model_config,
+                rollout_config=self.config.rollout,
                 full_params="hf" in self.config.rollout.load_format,
                 device_mesh=rollout_device_mesh,
             )
@@ -796,31 +778,12 @@ class CriticWorker(Worker):
         super().__init__()
         import torch.distributed
 
-        # Add safety checks and error handling for distributed initialization
-        try:
-            if not torch.distributed.is_initialized():
-                # Set NCCL environment variables before initialization
-                import os
-
-                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
-                os.environ.setdefault("NCCL_IB_DISABLE", "1")
-                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
-                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
-                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-
-                torch.distributed.init_process_group(backend="nccl")
-        except Exception as e:
-            print(f"Warning: Failed to initialize distributed process group: {e}")
-            # Continue without distributed initialization for single-node setups
-            pass
+        if not torch.distributed.is_initialized():
+            torch.distributed.init_process_group(backend="nccl")
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = (
-            torch.distributed.get_world_size()
-            if torch.distributed.is_initialized()
-            else 1
-        )
+        world_size = torch.distributed.get_world_size()
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1187,31 +1150,12 @@ class RewardModelWorker(Worker):
         super().__init__()
         import torch.distributed
 
-        # Add safety checks and error handling for distributed initialization
-        try:
-            if not torch.distributed.is_initialized():
-                # Set NCCL environment variables before initialization
-                import os
-
-                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
-                os.environ.setdefault("NCCL_IB_DISABLE", "1")
-                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
-                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
-                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-
-                torch.distributed.init_process_group(backend="nccl")
-        except Exception as e:
-            print(f"Warning: Failed to initialize distributed process group: {e}")
-            # Continue without distributed initialization for single-node setups
-            pass
+        if not torch.distributed.is_initialized():
+            torch.distributed.init_process_group(backend="nccl")
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = (
-            torch.distributed.get_world_size()
-            if torch.distributed.is_initialized()
-            else 1
-        )
+        world_size = torch.distributed.get_world_size()
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1389,6 +1333,7 @@ class RewardModelWorker(Worker):
             module=self.reward_module,
             inference_engine=rollout.inference_engine,
             model_config=self.reward_module_config,
+            rollout_config=self.config.rollout,
             full_params="hf" in self.config.rollout.load_format,
             device_mesh=rollout_device_mesh,
         )
@@ -1480,10 +1425,11 @@ class RewardModelWorker(Worker):
         token_level_scores = torch.zeros_like(
             attention_mask, dtype=scores.dtype
         )  # (bsz, seqlen)
-        token_level_scores[torch.arange(batch_size), eos_mask_idx] = scores
+        # token_level_scores[torch.arange(batch_size), eos_mask_idx] = scores
 
         # select the response part
         token_level_scores = token_level_scores[:, -response_length:]
+        token_level_scores[torch.arange(batch_size), response_length-1] = scores
 
         return token_level_scores
 
@@ -1558,7 +1504,7 @@ class RewardModelWorker(Worker):
 
         data = data.to(torch.cuda.current_device())
 
-        if self._is_param_offload:
+        if self._is_offload_param:
             load_fsdp_model_to_gpu(self.reward_module)
 
         if not self.config.use_similarity_score:
@@ -1615,16 +1561,20 @@ class RewardModelWorker(Worker):
         else:
             with self.rollout_sharding_manager:
 
-                if self._is_param_offload:
+                if self._is_offload_param:
                     offload_fsdp_model_to_cpu(self.reward_module)
 
                 prompts = self.rollout_sharding_manager.preprocess_data(data=data)
 
-                scores = self.rollout.get_similarity_scores(
+                outputs = self.rollout.get_similarity_scores(
                     prompts, self.input_tokenizer
                 )
-                scores = scores * self.config.reward_model.gamma
+                scores = [output.outputs.score for output in outputs]
 
+                scores = torch.tensor(scores).to(torch.cuda.current_device())
+
+                scores = scores * self.config.gamma
+                
                 token_level_scores = self._expand_to_token_level(data, scores)
 
                 output = DataProto.from_dict(tensors={"rm_scores": token_level_scores})
@@ -1647,30 +1597,12 @@ class SolverModelWorker(Worker):
         self.config = config
         import torch.distributed
 
-        # Add safety checks and error handling for distributed initialization
-        try:
-            if not torch.distributed.is_initialized():
-                # Set NCCL environment variables before initialization
-                import os
-
-                os.environ.setdefault("NCCL_CUMEM_ENABLE", "0")
-                os.environ.setdefault("NCCL_IB_DISABLE", "1")
-                os.environ.setdefault("NCCL_P2P_DISABLE", "1")
-                os.environ.setdefault("NCCL_SHM_DISABLE", "0")
-                os.environ.setdefault("NCCL_SOCKET_IFNAME", "lo")
-
-                torch.distributed.init_process_group(backend="nccl")
-        except Exception as e:
-            print(f"Warning: Failed to initialize distributed process group: {e}")
-            # Continue without distributed initialization for single-node setups
-            pass
+        # build device mesh for Ulysses Sequence Parallel
+        if not torch.distributed.is_initialized():
+            torch.distributed.init_process_group(backend="nccl")
 
         # build device mesh for Ulysses Sequence Parallel
-        world_size = (
-            torch.distributed.get_world_size()
-            if torch.distributed.is_initialized()
-            else 1
-        )
+        world_size = torch.distributed.get_world_size()
         from torch.distributed.device_mesh import init_device_mesh
 
         fsdp_size = self.config.model.fsdp_config.fsdp_size
@@ -1828,6 +1760,7 @@ class SolverModelWorker(Worker):
             module=self.solver_module,
             inference_engine=rollout.inference_engine,
             model_config=self.solver_module_config,
+            rollout_config=self.config.rollout,
             full_params="hf" in self.config.rollout.load_format,
             device_mesh=rollout_device_mesh,
         )

@@ -142,7 +142,7 @@ class vLLMRollout(BaseRollout):
                     gpu_memory_utilization=config.gpu_memory_utilization,
                     disable_custom_all_reduce=True,
                     skip_tokenizer_init=False,
-                    max_model_len=config.prompt_length + config.response_length,
+                    max_model_len=config.max_model_len,
                     disable_log_stats=config.disable_log_stats,
                     max_num_batched_tokens=max_num_batched_tokens,
                     enable_chunked_prefill=config.enable_chunked_prefill,
@@ -204,7 +204,7 @@ class vLLMRollout(BaseRollout):
                             gpu_memory_utilization=config.gpu_memory_utilization,
                             disable_custom_all_reduce=True,
                             skip_tokenizer_init=False,
-                            max_model_len=config.prompt_length + config.response_length,
+                            max_model_len=config.max_model_len,
                             disable_log_stats=config.disable_log_stats,
                             max_num_batched_tokens=max_num_batched_tokens,
                             enable_chunked_prefill=config.enable_chunked_prefill,
@@ -227,7 +227,8 @@ class vLLMRollout(BaseRollout):
                     raise
 
         # Offload vllm model to reduce peak memory usage
-        self.inference_engine.sleep(level=1)
+        if self.config.enable_sleep_mode:
+            self.inference_engine.sleep(level=1)
 
         kwargs = dict(
             n=1,
@@ -426,13 +427,10 @@ class vLLMRollout(BaseRollout):
         return DataProto(batch=batch, non_tensor_batch=non_tensor_batch)
 
     def get_similarity_scores(self, prompts: DataProto, tokenizer) -> List[float]:
-        if self.config.free_cache_engine:
-            self.inference_engine.init_cache_engine()
-
         prompt_ids = prompts.batch["responses"]
         prompt_str = tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
 
-        reference_str = prompts.non_tensor_batch["prompt"]
+        reference_str = prompts.non_tensor_batch["reference"]
 
         scores = self.inference_engine.score(prompt_str, reference_str)
 

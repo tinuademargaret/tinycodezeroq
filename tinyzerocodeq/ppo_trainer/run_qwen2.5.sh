@@ -11,8 +11,8 @@ HF_TOKEN=$HF_TOKEN
 # docker run -it -p 5000:5000 volcengine/sandbox-fusion:server-20241204
 
 
-taco_train_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
-taco_test_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+# taco_train_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
+# taco_test_path=/home/ubuntu/neslaai/tinycodezeroq/tinyzerocodeq/data_preprocess/code_dataset_taco_wrapped.json
 
 train_files="['$taco_train_path']"
 test_files="['$taco_test_path']"
@@ -42,7 +42,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=8 \
     critic.optim.lr=1e-5 \
     critic.model.use_remove_padding=True \
-    critic.model.path=Qwen/Qwen2-0.5B-Instruct \
+    critic.model.path=Qwen/Qwen2.5-0.5B-Instruct \
     critic.model.enable_gradient_checkpointing=False \
     critic.ppo_micro_batch_size_per_gpu=8 \
     critic.model.fsdp_config.param_offload=False \
@@ -52,7 +52,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
     trainer.project_name='tinyzerocodeq' \
-    trainer.experiment_name='qwen_2.5_3b_leetcode' \
+    trainer.experiment_name='Qwen2.5-3B-Instruct_Leetcode_Test' \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \

@@ -59,8 +59,6 @@ class FSDPVLLMShardingManager(BaseShardingManager):
         rollout_config,
         full_params: bool = False,
         device_mesh: DeviceMesh = None,
-        offload_param: bool = False,
-        load_format: str = "hf",
     ):
         self.module = module
         self.inference_engine = inference_engine
@@ -68,8 +66,6 @@ class FSDPVLLMShardingManager(BaseShardingManager):
         self.device_mesh = device_mesh
 
         self.rollout_config = rollout_config
-        self.offload_param = offload_param
-        self.load_format = load_format
 
         # Full params
         self.full_params = full_params
@@ -152,7 +148,7 @@ class FSDPVLLMShardingManager(BaseShardingManager):
                         else param
                     ),
                 )
-                for name, param in params.items()
+                for name, param in params.items() if name != "score.weight"
             )
         )
         logger.info(f"vLLM load wegiths, loaded_params: {len(loaded_params)}")

@@ -401,7 +401,7 @@ class vLLMRollout(BaseRollout):
         prompt_ids = prompts.batch["responses"]
         prompt_str = tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
 
-        reference_str = prompts.non_tensor_batch["prompt"]
+        reference_str = prompts.non_tensor_batch["reference"]
 
         scores = self.inference_engine.score(prompt_str, reference_str)
 

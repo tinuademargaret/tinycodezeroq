@@ -2,7 +2,7 @@ data:
   tokenizer: null
   train_files: /teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data/taco/train.parquet
   val_files: /teamspace/studios/this_studio/tinycodezeroq/tinyzerocodeq/data/taco/test.parquet
-  file_ext: "json"
+  file_ext: "parquet"
   prompt_key: prompt
   max_prompt_length: 512
   max_response_length: 512
@@ -18,7 +18,7 @@ data:
 actor_rollout_ref:
   hybrid_engine: True
   model:
-    path: Qwen/Qwen2.5-Coder-0.5B-Instruct
+    path: Qwen/Qwen2.5-3B-Instruct
     external_lib: null
     override_config: { }
     enable_gradient_checkpointing: False
@@ -81,7 +81,7 @@ actor_rollout_ref:
     load_format: dummy_dtensor
     tensor_model_parallel_size: 1
     max_num_batched_tokens: 8192
-    max_model_len: null
+    max_model_len: 4096
     max_num_seqs: 1024
     log_prob_micro_batch_size: null # will be deprecated, use log_prob_micro_batch_size_per_gpu
     log_prob_micro_batch_size_per_gpu: 16
@@ -112,7 +112,7 @@ critic:
     warmup_style: constant  # select from constant/cosine
     total_training_steps: -1  # must be override by program
   model:
-    path: Qwen/Qwen2.5-Coder-0.5B-Instruct
+    path: Qwen/Qwen2.5-0.5B-Instruct
     tokenizer_path: ${actor_rollout_ref.model.path}
     override_config: { }
     external_lib: ${actor_rollout_ref.model.external_lib}
@@ -172,7 +172,7 @@ reward_model:
     dtype: bfloat16 # should align with FSDP
     gpu_memory_utilization: 0.3
     free_cache_engine: True
-    max_model_len: null
+    max_model_len: 4096
     max_num_batched_tokens: 8192
     max_num_seqs: 512
     enable_chunked_prefill: False
@@ -195,7 +195,7 @@ solver_model:
   strategy: fsdp
   model:
     input_tokenizer: ${actor_rollout_ref.model.path}  # set this to null if the chat template is identical
-    path: deepseek-ai/deepseek-coder-1.3b-instruct
+    path: deepseek-ai/deepseek-coder-7b-instruct
     trust_remote_code: True
     # Qwen/Qwen2.5-Coder-0.5B-Instruct
     # deepseek-ai/deepseek-coder-1.3b-instruct
@@ -229,7 +229,7 @@ solver_model:
     enable_sleep_mode: False
     tensor_model_parallel_size: 1
     max_num_batched_tokens: 8192
-    max_model_len: null
+    max_model_len: 4096
     max_num_seqs: 1024
     log_prob_micro_batch_size: null # will be deprecated, use log_prob_micro_batch_size_per_gpu
     log_prob_micro_batch_size_per_gpu: 16
