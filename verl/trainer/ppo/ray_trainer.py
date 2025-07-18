@@ -669,7 +669,7 @@ class RayPPOTrainer(object):
             # Validation datasets are sent to inference engines as a whole batch,
             # which will schedule the memory themselves.
             # batch_size=len(self.val_dataset),
-            batch_size=4,
+            batch_size=224,
             num_workers=8,
             shuffle=True,
             drop_last=False,
