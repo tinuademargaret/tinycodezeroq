@@ -16,6 +16,7 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
+import aiohttp
 import torch
 
 from verl import DataProto
@@ -34,24 +35,23 @@ async def single_compute_score(
     loop = asyncio.get_running_loop()
     try:
         # Ensure process_completion is called properly
-        tasks = [
-            asyncio.wait_for(
-                loop.run_in_executor(
-                    executor,
-                    partial(
-                        evaluation_func, task, completion, reference, task_extra_info
-                    ),  # Ensure synchronous
-                ),
-                timeout=timeout,
-            )
-        ]
-        return await asyncio.gather(*tasks)
+        result, feedback = await asyncio.wait_for(
+            loop.run_in_executor(
+                executor,
+                partial(
+                    evaluation_func, task, completion, reference, task_extra_info
+                ),  # Ensure synchronous
+            ),
+            timeout=timeout,
+        )
+    
+        return result, feedback
     except asyncio.TimeoutError:
         print(f"Timeout occurred for completion: {completion}")
         return None  # Default value for timed-out rows
-    except Exception as e:
-        print(f"Error processing completion: {completion[:10]}, Error: {e}")
-        return None  # Default value for failed rows
+    # except Exception as e:
+    #     print(f"Error processing completion: {completion[:10]}, Error: {e}")
+    #     return None  # Default value for failed rows
 
 
 async def parallel_compute_score_async(
@@ -62,6 +62,7 @@ async def parallel_compute_score_async(
         if extra_info is None:
             extra_info = [None] * len(tasks)
         # Create tasks for all rows
+
         tasks_async = [
             single_compute_score(
                 evaluation_func,
@@ -78,7 +79,7 @@ async def parallel_compute_score_async(
         ]
         # to prevent very occasional starvation caused by some anomalous programs ( like infinite loop ), the exceptions in async programs will instantly halt the evaluation, and all summoned processes will be killed.
         try:
-            results = await asyncio.gather(*tasks_async, return_exceptions=False)
+            all_results = await asyncio.gather(*tasks_async, return_exceptions=True)
         except:
             for pid, proc in executor._processes.items():
                 try:
@@ -88,17 +89,82 @@ async def parallel_compute_score_async(
             raise
 
     # Process results
+    results = []
+    feedbacks = []
     for result, completion, reference, task in zip(
-        results, completions, references, tasks
+        all_results, completions, references, tasks
     ):
         if isinstance(result, Exception) or result is None:
             # Handle failed or timed-out tasks
             scores.append(0.0)
-        elif isinstance(result[0], (int, float, bool)):
-            scores.append(float(result[0]))
+            results.append(None)
+            feedbacks.append(None)
+        elif isinstance(result, (int, float, bool)):
+            scores.append(float(result))
+            results.append(result)
+            feedbacks.append(None)
         else:
-            scores.append(float(result[0][0]))
-    return scores
+            # If result is a tuple/list, unpack it
+            if isinstance(result, (tuple, list)) and len(result) >= 2:
+                scores.append(float(result[0]))
+                results.append(result[0])
+                feedbacks.append(result[1])
+            else:
+                scores.append(float(result[0]))
+                results.append(result[0])
+                feedbacks.append(None)
+    return scores, feedbacks, references
+
+
+async def single_inference(session, url, data):
+    try:
+        async with session.post(url, json=data) as r:
+            response = await r.json()
+            return response["content"]
+    except Exception as e:
+        print(f"Error in single inference: {e}")
+        return None
+
+
+async def parallel_inference(
+    config,
+    data,
+):
+    url = config.url
+    timeout = aiohttp.ClientTimeout(
+        total=config.timeout,
+    )
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        instruction = (
+            "Given the problem description, write a complete solution in Python that adheres to the following guidelines:"
+            "The solution must:"
+            "- Be enclosed within a Python code block"
+            "- Read the input from standard input (stdin) exactly as described in the problem statement"
+            "- Process the input according to the problem's requirements"
+            "- Output the result using the print() function exclusively (do not use return statements or stdout.write())"
+        )
+        task_async = [
+            asyncio.create_task(
+                single_inference(
+                    session,
+                    url,
+                    {"prompt": instruction + "\n\n" + "PROBLEM: " + problem},
+                )
+            )
+            for problem in data
+        ]
+        print(
+            f"--------------------------------------NO OF TASKS: {len(task_async)}-------------------------------------------------------------------"
+        )
+
+        try:
+            responses = await asyncio.gather(*task_async)
+        except Exception as e:
+            print(f"Error in parallel inference: {e}")
+            responses = [None] * len(data)
+
+        return responses
 
 
 class PrimeRewardManager:
@@ -106,60 +172,92 @@ class PrimeRewardManager:
     The Reward Manager used in https://github.com/PRIME-RL/PRIME
     """
 
-    def __init__(self, tokenizer, num_examine, compute_score=None) -> None:
-        self.tokenizer = tokenizer
+    def __init__(self, config, input_tokenizer, output_tokenizer, num_examine, compute_score=None) -> None:
+        self.input_tokenizer = input_tokenizer
+        self.output_tokenizer = output_tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
         self.compute_score = compute_score or _default_compute_score
+        self.config = config
 
     def verify(self, data):
         """
+        solve generated problem (responses) to get solutions to verify
         verify the batch and save as ``acc`` tensor
         """
-        # batched scoring
-        prompt_ids = data.batch["prompts"]
 
-        response_ids = data.batch["responses"]
-        sequences_str = self.tokenizer.batch_decode(
-            response_ids, skip_special_tokens=True
+        generated_problem_ids = data.batch["responses"]
+        generated_problem_str = self.input_tokenizer.batch_decode(
+            generated_problem_ids, skip_special_tokens=True
         )
+
+        generated_solution_ids = data.batch["solutions"]
+        generated_solution_str = self.output_tokenizer.batch_decode(generated_solution_ids)
+
+        # """
+        # pass question_str to parallel_inference to get solutions
+        # """
+        # try:
+        #     solution_str = asyncio.run(
+        #         parallel_inference(self.config, generated_problem_str)
+        #     )
+        # except Exception as e:
+        #     print(f"Error in parallel inference: {e}")
+        #     solution_str = [None] * len(generated_problem_str)
+
+        # batched scoring
+        original_solution_ids = data.batch["prompts"]
+        original_solution_str = self.input_tokenizer.batch_decode(
+            original_solution_ids, skip_special_tokens=True
+        )
+
+        # ground truth is test cases
         ground_truth = [
             data_item.non_tensor_batch["reward_model"]["ground_truth"]
             for data_item in data
         ]
         data_sources = data.non_tensor_batch["data_source"]
+        references = None
 
-        assert len(sequences_str) == len(ground_truth) == len(data_sources)
+        assert len(generated_solution_str) == len(ground_truth) == len(data_sources)
+        # print("COMPUTING SCORES.........")
         try:
-            scores = asyncio.run(
+            scores, feedbacks, references = asyncio.run(
                 parallel_compute_score_async(
                     self.compute_score,
-                    sequences_str,
+                    generated_solution_str,
                     ground_truth,
                     data_sources,
                     num_processes=64,
                 )
             )
+            # print(f"SCORES: {scores}")
         except asyncio.TimeoutError as e:
             print("Global timeout in reward computing! Setting all as 0.")
-            scores = [0.0 for _ in range(len(sequences_str))]
-        except Exception as e:
-            print(
-                f"Unexpected error in batched reward computing. Setting all as 0.: {e}"
-            )
-            scores = [0.0 for _ in range(len(sequences_str))]
+            scores = [0.0 for _ in range(len(generated_solution_str))]
+            feedbacks = ['timeout'] * len(generated_solution_str)
+        # except Exception as e:
+        #     print(
+        #         f"Unexpected error in batched reward computing. Setting all as 0.: {e}"
+        #     )
+        #     scores = [0.0 for _ in range(len(generated_solution_str))]
+        #     feedbacks = [f'{e}' for _ in range(len(generated_solution_str))]
+        finally:
+            if references is None:
+                references = ground_truth
+
         data.batch["acc"] = torch.tensor(
-            scores, dtype=torch.float32, device=prompt_ids.device
+            scores, dtype=torch.float32, device=original_solution_ids.device
         )
-        return scores
+        return scores, feedbacks, references
 
     def __call__(self, data: DataProto):
         """We will expand this function gradually based on the available datasets"""
 
-        # If there is rm score, we directly return rm score. Otherwise, we compute via rm_score_fn
-        if "rm_scores" in data.batch.keys():
-            return data.batch["rm_scores"]
-
-        reward_tensor = torch.zeros_like(data.batch["solutions"], dtype=torch.float32)
+        # this reward tensor is used to compute the advantages of the actor rollout i.e the generated problem
+        # but the scores stored are from the  solution of the generated problem
+        reward_tensor = torch.zeros_like(
+            data.batch["responses"], dtype=torch.float32
+        )  # should be B, T
 
         already_print_data_sources = {}
 
@@ -167,27 +265,55 @@ class PrimeRewardManager:
         prompt_ids = data.batch["prompts"]
         prompt_length = prompt_ids.shape[-1]
 
-        response_ids = data.batch["solutions"]
+        response_ids = data.batch["responses"]
+        response_length = data.batch["responses"].shape[-1]
         valid_response_length = data.batch["attention_mask"][:, prompt_length:].sum(
             dim=-1
         )
-        sequences_str = self.tokenizer.batch_decode(
+
+        prompt_str = self.input_tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
+        generated_problem_str = self.input_tokenizer.batch_decode(
             response_ids, skip_special_tokens=True
         )
         data_sources = data.non_tensor_batch["data_source"]
         extra_info = data.non_tensor_batch.get("extra_info", [None] * len(data_sources))
 
-        scores = self.verify(data)
+        scores, feedbacks, references = self.verify(data)  # should be B
+
+        # Combine rm_scores with computed scores if rm_scores exist
+        if "rm_scores" in data.batch.keys():
+            rm_scores = data.batch["rm_scores"]  # Shape: (batch_size, sequence_length)
+            
+            # For each sample, we need to get the rm_score at the last valid token position
+            rm_scores_at_valid_positions = []
+            for i in range(len(data)):
+                # Get the rm_score at the last valid response position
+                last_valid_pos = response_length-1
+                rm_score_at_pos = rm_scores[i, last_valid_pos].item()
+                rm_scores_at_valid_positions.append(rm_score_at_pos)
+            
+            # Add rm_scores to computed scores
+            combined_scores = [score + rm_score for score, rm_score in zip(scores, rm_scores_at_valid_positions)]
+            
+        else:
+            combined_scores = scores
 
         for i in range(len(data)):
             data_source = data_sources[i]
-            reward_tensor[i, valid_response_length[i].item() - 1] = scores[i]
+            # seems like we are storing scores at the last valid position
+            reward_tensor[i, valid_response_length[i].item() - 1] = combined_scores[i]
 
             if data_source not in already_print_data_sources:
                 already_print_data_sources[data_source] = 0
 
             if already_print_data_sources[data_source] < self.num_examine:
                 already_print_data_sources[data_source] += 1
-                print(sequences_str)
-
-        return reward_tensor
+                # print(
+                #     f"------------------------------------------------------------PROMPT--------------------------------------------------------------------------------------"
+                # )
+                # print(prompt_str[i])
+                # print(
+                #     f"-------------------------------------------------------------Generated Problem---------------------------------------------------------------------------"
+                # )
+                # print({generated_problem_str[i]})
+        return reward_tensor, feedbacks, references

@@ -20,6 +20,8 @@ from functools import partial
 from pathlib import Path
 from typing import List, Union, Dict, Any
 
+import wandb
+
 
 class Tracking(object):
     supported_backend = [
@@ -54,7 +56,7 @@ class Tracking(object):
         self.logger = {}
 
         if "tracking" in default_backend or "wandb" in default_backend:
-            import wandb
+            
 
             wandb.init(project=project_name, name=experiment_name, config=config)
             self.logger["wandb"] = wandb
@@ -211,16 +213,17 @@ class ValidationGenerationsLogger:
 
     def log_generations_to_wandb(self, samples, step):
         """Log samples to wandb as a table"""
-        import wandb
-
+        # import wandb
         # Create column names for all samples
         columns = ["step"] + sum(
             [
-                [f"input_{i+1}", f"output_{i+1}", f"solution_{i+1}", f"score_{i+1}"]
+                [f"input_{i+1}", f"output_{i+1}", f"solution_{i+1}", f"score_{i+1}", f"result_{i+1}", f"reference_{i+1}"]
                 for i in range(len(samples))
             ],
             [],
         )
+
+        print(f"COLUMNS: {columns}")
 
         if not hasattr(self, "validation_table"):
             # Initialize the table on first call
@@ -233,12 +236,14 @@ class ValidationGenerationsLogger:
         # Add new row with all data
         row_data = []
         row_data.append(step)
-        for sample in samples:
+        for i, sample in enumerate(samples):
+            # print(f"SAMPLE {i}: {sample}")
             row_data.extend(sample)
 
         new_table.add_data(*row_data)
 
         # Update reference and log
+        print(f"LOGGING TO WANDB")
         wandb.log({"val/generations": new_table}, step=step)
         self.validation_table = new_table
 

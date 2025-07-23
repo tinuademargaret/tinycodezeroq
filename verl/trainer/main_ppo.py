@@ -14,8 +14,10 @@
 """
 Note that we don't combine the main with ray_trainer as ray_trainer is used by other main.
 """
+from functools import partial
+import multiprocessing
 from verl.trainer.ppo.ray_trainer import RayPPOTrainer
-
+from verl.utils.reward_score import _default_compute_score
 import ray
 import hydra
 
@@ -70,6 +72,21 @@ def run_ppo(config) -> None:
                     "NCCL_DEBUG": "WARN",
                     "VLLM_LOGGING_LEVEL": "WARN",
                     "RAY_DEBUG": "1",
+                    # Add NCCL environment variables to prevent segmentation fault
+                    "NCCL_CUMEM_ENABLE": "0",
+                    "NCCL_IB_DISABLE": "1",
+                    "NCCL_P2P_DISABLE": "1",
+                    "NCCL_SHM_DISABLE": "0",
+                    "NCCL_SOCKET_IFNAME": "lo",
+                    # Add Hugging Face Hub rate limiting configuration
+                    "HF_HUB_DISABLE_TELEMETRY": "1",
+                    "HF_HUB_OFFLINE": "0",
+                    "HF_HUB_ENABLE_HF_TRANSFER": "1",
+                    "HF_HUB_DOWNLOAD_TIMEOUT": "500",
+                    "HF_HUB_RETRY_DELAY": "1",
+                    "HF_HUB_MAX_RETRIES": "3",
+                    # Uncomment and set your HF token for higher rate limits:
+                    # "HF_TOKEN": "your_huggingface_token_here",
                 }
             }
         )
@@ -91,14 +108,16 @@ def main_task(config):
     OmegaConf.resolve(config)
 
     # download the checkpoint from hdfs
-    local_path = copy_to_local(config.actor_rollout_ref.model.path)
+    actor_local_path = copy_to_local(config.actor_rollout_ref.model.path)
+    solver_local_path = copy_to_local(config.solver_model.model.path)
 
     # instantiate tokenizer
     from verl.utils import hf_tokenizer, hf_processor
 
-    tokenizer = hf_tokenizer(local_path)
+    input_tokenizer = hf_tokenizer(actor_local_path)
+    output_tokenizer = hf_tokenizer(solver_local_path)
     processor = hf_processor(
-        local_path, use_fast=True
+        actor_local_path, use_fast=True
     )  # used for multimodal LLM, could be none
 
     # define worker classes
@@ -144,7 +163,7 @@ def main_task(config):
     }
 
     # we should adopt a multi-source reward function here
-    # - for rule-based rm, we directly call a reward score
+    # - for rule-based rm, we directly call a reward function
     # - for model-based rm, we call a model
     # - for code related prompt, we send to a sandbox if there are test cases
     # - finally, we combine all the rewards together
@@ -172,13 +191,39 @@ def main_task(config):
         raise NotImplementedError
 
     compute_score = get_custom_reward_fn(config)
+    final_compute_score = compute_score
+
+    if compute_score is None:
+        sandbox_config = config.reward_model.get("sandbox_fusion")
+        sandbox_url = sandbox_config.get("url") if sandbox_config else None
+        if sandbox_url:
+            sandbox_manager = multiprocessing.Manager()
+            _concurrent_semaphore = sandbox_manager.Semaphore(
+                sandbox_config.get("max_concurrent", 64)
+            )
+            final_compute_score = partial(
+                _default_compute_score,
+                sandbox_fusion_url=sandbox_url,
+                concurrent_semaphore=_concurrent_semaphore,
+            )
+        else:
+            final_compute_score = _default_compute_score
+
     reward_fn = reward_manager_cls(
-        tokenizer=tokenizer, num_examine=0, compute_score=compute_score
+        config.reward_model.solver,
+        input_tokenizer=input_tokenizer,
+        output_tokenizer=output_tokenizer,
+        num_examine=0,
+        compute_score=final_compute_score,
     )
 
     # Note that we always use function-based RM for validation
     val_reward_fn = reward_manager_cls(
-        tokenizer=tokenizer, num_examine=1, compute_score=compute_score
+        config.reward_model.solver,
+        input_tokenizer=input_tokenizer,
+        output_tokenizer=output_tokenizer,
+        num_examine=1,
+        compute_score=final_compute_score,
     )
 
     resource_pool_manager = ResourcePoolManager(
@@ -187,7 +232,8 @@ def main_task(config):
 
     trainer = RayPPOTrainer(
         config=config,
-        tokenizer=tokenizer,
+        input_tokenizer=input_tokenizer,
+        output_tokenizer=output_tokenizer,
         processor=processor,
         role_worker_mapping=role_worker_mapping,
         resource_pool_manager=resource_pool_manager,

@@ -79,6 +79,7 @@ class RLHFDataset(Dataset):
 
     def __init__(self,
                  parquet_files: Union[str, List[str]],
+                 file_ext: str,
                  tokenizer: PreTrainedTokenizer,
                  processor: Optional[ProcessorMixin] = None,
                  prompt_key='prompt',
@@ -95,6 +96,7 @@ class RLHFDataset(Dataset):
 
         self.parquet_files = copy.deepcopy(parquet_files)
         self.original_parquet_files = copy.deepcopy(parquet_files)  # use for resume
+        self.file_ext = file_ext
         self.cache_dir = os.path.expanduser(cache_dir)
         self.tokenizer = tokenizer
         self.processor = processor
@@ -123,11 +125,18 @@ class RLHFDataset(Dataset):
 
     def _read_files_and_tokenize(self):
         dataframes = []
-        for parquet_file in self.parquet_files:
-            # read parquet files and cache
-            dataframe = pd.read_parquet(parquet_file)
-            dataframes.append(dataframe)
-        self.dataframe = pd.concat(dataframes)
+        if self.file_ext == "json":
+            for parquet_file in self.parquet_files:
+                # read parquet files and cache
+                dataframe = pd.read_json(parquet_file)
+                dataframes.append(dataframe)
+            self.dataframe = pd.concat(dataframes)
+        elif self.file_ext == "parquet":
+            for parquet_file in self.parquet_files:
+                # read parquet files and cache
+                dataframe = pd.read_parquet(parquet_file)
+                dataframes.append(dataframe)
+            self.dataframe = pd.concat(dataframes)
 
         print(f'dataset len: {len(self.dataframe)}')
 
@@ -187,7 +196,6 @@ class RLHFDataset(Dataset):
                                                                               self.processor.image_token)
         else:
             raw_prompt = prompt_with_chat_template
-
         input_ids, attention_mask = verl_F.tokenize_and_postprocess_data(prompt=prompt_with_chat_template,
                                                                          tokenizer=self.tokenizer,
                                                                          max_length=self.max_prompt_length,
@@ -219,6 +227,7 @@ class RLHFDataset(Dataset):
         # add index for each prompt
         index = row_dict.get("extra_info", {}).get("index", 0)
         row_dict["index"] = index
+        row_dict["reference"] = row_dict.get("extra_info", {}).get("reference", "")
 
         return row_dict
 

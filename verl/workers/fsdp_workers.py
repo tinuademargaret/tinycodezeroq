@@ -468,6 +468,7 @@ class ActorRolloutRefWorker(Worker):
                 module=self.actor_module_fsdp,
                 inference_engine=rollout.inference_engine,
                 model_config=self.actor_model_config,
+                rollout_config=self.config.rollout,
                 full_params="hf" in self.config.rollout.load_format,
                 device_mesh=rollout_device_mesh,
             )
@@ -1179,6 +1180,9 @@ class RewardModelWorker(Worker):
         )
 
         self.use_remove_padding = self.config.model.get("use_remove_padding", False)
+        self._is_offload_param = self.config.model.fsdp_config.get(
+            "param_offload", False
+        )
 
         # normalize config
         if self.config.micro_batch_size is not None:
@@ -1264,13 +1268,78 @@ class RewardModelWorker(Worker):
             device_mesh=self.device_mesh,
         )
 
-        return reward_module
+        log_gpu_memory_usage("After Reward FSDP init", logger=logger)
+
+        return reward_module, model_config
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def init_model(self):
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get("external_lib", None))
-        self.reward_module = self._build_model(config=self.config)
+        self.reward_module, self.reward_module_config = self._build_model(
+            config=self.config
+        )
+        if self.config.use_similarity_score:
+            self.rollout, self.rollout_sharding_manager = self.build_rollout()
+
+    def build_rollout(self):
+        from torch.distributed.device_mesh import init_device_mesh
+
+        infer_tp = self.config.rollout.tensor_model_parallel_size
+        dp = self.world_size // infer_tp
+        assert (
+            self.world_size % infer_tp == 0
+        ), f"rollout world size {self.world_size} is not divisible by infer tp {infer_tp}"
+        rollout_device_mesh = init_device_mesh(
+            "cuda",
+            mesh_shape=(dp, infer_tp),
+            mesh_dim_names=["dp", "infer_tp"],
+        )
+
+        # strictly use vllm rollout for now and also ignore fire sampling for now
+
+        from verl.workers.rollout.vllm_rollout import vLLMRollout, vllm_mode
+        from verl.workers.sharding_manager import FSDPVLLMShardingManager
+
+        log_gpu_memory_usage("Before building vllm rollout", logger=logger)
+        local_path = copy_to_local(self.config.model.path)
+
+        if vllm_mode == "customized":
+            rollout = vLLMRollout(
+                actor_module=self.reward_module,
+                config=self.config.rollout,
+                tokenizer=self.tokenizer,
+                model_hf_config=self.reward_module_config,
+                task="score",
+            )
+        elif vllm_mode == "spmd":
+            rollout = vLLMRollout(
+                model_path=local_path,
+                config=self.config.rollout,
+                tokenizer=self.tokenizer,
+                model_hf_config=self.reward_module_config,
+                device_mesh=rollout_device_mesh,
+                task="score",
+            )
+        else:
+            raise NotImplementedError(f"Invalid vllm mode: {vllm_mode}")
+
+        log_gpu_memory_usage("After building vllm rollout", logger=logger)
+
+        if torch.distributed.get_world_size() == 1:
+            self.config.rollout.load_format == "dummy_hf"
+
+        rollout_sharding_manager = FSDPVLLMShardingManager(
+            module=self.reward_module,
+            inference_engine=rollout.inference_engine,
+            model_config=self.reward_module_config,
+            rollout_config=self.config.rollout,
+            full_params="hf" in self.config.rollout.load_format,
+            device_mesh=rollout_device_mesh,
+        )
+        log_gpu_memory_usage("After building vllm sharding manager", logger=logger)
+
+        return rollout, rollout_sharding_manager
 
     def _forward_micro_batch(self, micro_batch):
         from flash_attn.bert_padding import (
@@ -1356,10 +1425,11 @@ class RewardModelWorker(Worker):
         token_level_scores = torch.zeros_like(
             attention_mask, dtype=scores.dtype
         )  # (bsz, seqlen)
-        token_level_scores[torch.arange(batch_size), eos_mask_idx] = scores
+        # token_level_scores[torch.arange(batch_size), eos_mask_idx] = scores
 
         # select the response part
         token_level_scores = token_level_scores[:, -response_length:]
+        token_level_scores[torch.arange(batch_size), response_length-1] = scores
 
         return token_level_scores
 
@@ -1374,7 +1444,7 @@ class RewardModelWorker(Worker):
 
         for i in range(data.batch.batch_size[0]):
             # extract raw prompt
-            chat: list = data.non_tensor_batch["raw_prompt"][i].tolist()
+            chat: list = data.non_tensor_batch["prompt"][i].tolist()
 
             # extract response
             response_ids = data.batch["responses"][i]
@@ -1407,7 +1477,7 @@ class RewardModelWorker(Worker):
                 tokenizer=target_tokenizer,
                 max_length=max_length,
                 pad_token_id=target_tokenizer.pad_token_id,
-                left_pad=False,  # right padding
+                left_pad=True,  # left padding - vLLM expects left-padded inputs
                 truncation=self.config.get("truncation", "right"),
             )  # truncate from the right
 
@@ -1432,55 +1502,84 @@ class RewardModelWorker(Worker):
         import itertools
         from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
 
-        # Support all hardwares
         data = data.to(torch.cuda.current_device())
-        if self._do_switch_chat_template:
-            rm_data = self._switch_chat_template(data)
 
-        # Support all hardwares
-        rm_data.batch = rm_data.batch.to(torch.cuda.current_device())
+        if self._is_offload_param:
+            load_fsdp_model_to_gpu(self.reward_module)
 
-        # perform forward computation
-        with self.ulysses_sharding_manager:
-            rm_data = self.ulysses_sharding_manager.preprocess_data(data=rm_data)
-            data = self.ulysses_sharding_manager.preprocess_data(data=data)
+        if not self.config.use_similarity_score:
+            # Support all hardwares
 
-            use_dynamic_bsz = self.config.use_dynamic_bsz
-            if use_dynamic_bsz:
-                max_token_len = (
-                    self.config.forward_max_token_len_per_gpu
-                    * self.ulysses_sequence_parallel_size
+            if self._do_switch_chat_template:
+                rm_data = self._switch_chat_template(data)
+
+            # Support all hardwares
+            rm_data.batch = rm_data.batch.to(torch.cuda.current_device())
+
+            # perform forward computation
+            with self.ulysses_sharding_manager:
+                rm_data = self.ulysses_sharding_manager.preprocess_data(data=rm_data)
+                data = self.ulysses_sharding_manager.preprocess_data(data=data)
+
+                use_dynamic_bsz = self.config.use_dynamic_bsz
+                if use_dynamic_bsz:
+                    max_token_len = (
+                        self.config.forward_max_token_len_per_gpu
+                        * self.ulysses_sequence_parallel_size
+                    )
+                    micro_batches, indices = rearrange_micro_batches(
+                        batch=rm_data.batch, max_token_len=max_token_len
+                    )
+                else:
+                    micro_batches = rm_data.batch.split(
+                        self.config.micro_batch_size_per_gpu
+                    )
+                output = []
+                for micro_batch in micro_batches:
+                    rm_score = self._forward_micro_batch(micro_batch)
+                    output.append(rm_score)
+                scores = torch.cat(output, dim=0)  # (batch_size)
+
+                if use_dynamic_bsz:
+                    indices = list(itertools.chain.from_iterable(indices))
+                    assert len(indices) == scores.size(
+                        0
+                    ), f"{len(indices)} vs. {scores.size()}"
+                    revert_indices = torch.tensor(
+                        get_reverse_idx(indices), dtype=torch.long
+                    )
+                    scores = scores[revert_indices]
+
+                token_level_scores = self._expand_to_token_level(data, scores)
+                # Note that this is only the scores, may not be the final rewards used to train RL
+                output = DataProto.from_dict(tensors={"rm_scores": token_level_scores})
+                output = self.ulysses_sharding_manager.postprocess_data(data=output)
+
+            # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes
+            # unshard the root FSDP module
+
+        else:
+            with self.rollout_sharding_manager:
+
+                if self._is_offload_param:
+                    offload_fsdp_model_to_cpu(self.reward_module)
+
+                prompts = self.rollout_sharding_manager.preprocess_data(data=data)
+
+                outputs = self.rollout.get_similarity_scores(
+                    prompts, self.input_tokenizer
                 )
-                micro_batches, indices = rearrange_micro_batches(
-                    batch=rm_data.batch, max_token_len=max_token_len
-                )
-            else:
-                micro_batches = rm_data.batch.split(
-                    self.config.micro_batch_size_per_gpu
-                )
-            output = []
-            for micro_batch in micro_batches:
-                rm_score = self._forward_micro_batch(micro_batch)
-                output.append(rm_score)
-            scores = torch.cat(output, dim=0)  # (batch_size)
+                scores = [output.outputs.score for output in outputs]
 
-            if use_dynamic_bsz:
-                indices = list(itertools.chain.from_iterable(indices))
-                assert len(indices) == scores.size(
-                    0
-                ), f"{len(indices)} vs. {scores.size()}"
-                revert_indices = torch.tensor(
-                    get_reverse_idx(indices), dtype=torch.long
-                )
-                scores = scores[revert_indices]
+                scores = torch.tensor(scores).to(torch.cuda.current_device())
 
-            token_level_scores = self._expand_to_token_level(data, scores)
-            # Note that this is only the scores, may not be the final rewards used to train RL
-            output = DataProto.from_dict(tensors={"rm_scores": token_level_scores})
-            output = self.ulysses_sharding_manager.postprocess_data(data=output)
+                scores = scores * self.config.gamma
+                
+                token_level_scores = self._expand_to_token_level(data, scores)
 
-        # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes
-        # unshard the root FSDP module
+                output = DataProto.from_dict(tensors={"rm_scores": token_level_scores})
+                output = self.rollout_sharding_manager.postprocess_data(data=output)
+
         self.reward_module._handle.reshard(True)
 
         output = output.to("cpu")
@@ -1495,11 +1594,12 @@ class SolverModelWorker(Worker):
 
     def __init__(self, config):
         super().__init__()
+        self.config = config
         import torch.distributed
 
+        # build device mesh for Ulysses Sequence Parallel
         if not torch.distributed.is_initialized():
             torch.distributed.init_process_group(backend="nccl")
-        self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
         world_size = torch.distributed.get_world_size()
@@ -1510,28 +1610,7 @@ class SolverModelWorker(Worker):
             world_size=world_size, fsdp_size=fsdp_size
         )
 
-        self.ulysses_device_mesh = None
-        self.ulysses_sequence_parallel_size = self.config.get(
-            "ulysses_sequence_parallel_size", 1
-        )
-        dp = world_size // self.ulysses_sequence_parallel_size
-        if self.ulysses_sequence_parallel_size > 1:
-            self.ulysses_device_mesh = init_device_mesh(
-                "cuda",
-                mesh_shape=(dp, self.ulysses_sequence_parallel_size),
-                mesh_dim_names=["dp", "sp"],
-            )
-
-        self.ulysses_sharding_manager = FSDPUlyssesShardingManager(
-            self.ulysses_device_mesh
-        )
-
-        self.use_remove_padding = self.config.model.get("use_remove_padding", False)
-
-        # normalize config
-        if self.config.micro_batch_size is not None:
-            self.config.micro_batch_size //= torch.distributed.get_world_size()
-            self.config.micro_batch_size_per_gpu = self.config.micro_batch_size
+        self._is_param_offload = self.config.model.fsdp_config.param_offload
 
     def _build_model(self, config):
         # the following line is necessary
@@ -1541,29 +1620,34 @@ class SolverModelWorker(Worker):
             ShardingStrategy,
             CPUOffload,
         )
+        from verl.utils.model import (
+            print_model_size,
+            update_model_config,
+            get_generation_config,
+        )
 
         # download the checkpoint from hdfs
+        log_gpu_memory_usage("Before init Solver from HF AutoModel", logger=logger)
         local_path = copy_to_local(config.model.path)
 
-        if self.config.model.input_tokenizer is None:
-            self._do_switch_chat_template = False
-        else:
-            self._do_switch_chat_template = True
-            input_tokenizer_local_path = copy_to_local(config.model.input_tokenizer)
-            self.input_tokenizer = hf_tokenizer(
-                input_tokenizer_local_path,
-                trust_remote_code=config.model.get("trust_remote_code", False),
-            )
-            self.tokenizer = hf_tokenizer(
-                local_path,
-                trust_remote_code=config.model.get("trust_remote_code", False),
-            )
+        input_tokenizer_path = copy_to_local(config.model.input_tokenizer)
+        self.input_tokenizer = hf_tokenizer(
+            input_tokenizer_path,
+            trust_remote_code=config.model.get("trust_remote_code", False),
+        )
+
+        self.tokenizer = hf_tokenizer(
+            local_path,
+            trust_remote_code=config.model.get("trust_remote_code", False),
+        )
 
         trust_remote_code = config.model.get("trust_remote_code", False)
         model_config = AutoConfig.from_pretrained(
             local_path, trust_remote_code=trust_remote_code
         )
-        model_config.num_labels = 1
+        self.generation_config = get_generation_config(
+            local_path, trust_remote_code=trust_remote_code
+        )
 
         use_remove_padding = config.model.get("use_remove_padding", False)
         if use_remove_padding:
@@ -1571,10 +1655,12 @@ class SolverModelWorker(Worker):
 
             check_model_support_rmpad(model_config.model_type)
 
-        if use_remove_padding and self.ulysses_sequence_parallel_size > 1:
-            from verl.models.transformers.monkey_patch import apply_monkey_patch
-
-            apply_monkey_patch(model_config, verbose=True)
+        override_config_kwargs = {
+            "bos_token_id": self.tokenizer.bos_token_id,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "pad_token_id": self.tokenizer.pad_token_id,
+        }
+        update_model_config(model_config, override_config_kwargs=override_config_kwargs)
 
         # note that we have to create model in fp32. Otherwise, the optimizer is in bf16, which is incorrect
         init_context = get_init_weight_context_manager(
@@ -1612,172 +1698,130 @@ class SolverModelWorker(Worker):
             device_mesh=self.device_mesh,
         )
 
-        return solver_module
+        log_gpu_memory_usage("After Solver FSDP init", logger=logger)
+
+        return solver_module, model_config
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def init_model(self):
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get("external_lib", None))
-        self.solver_module = self._build_model(config=self.config)
-
-    def _forward_micro_batch(self, micro_batch, gen_config, do_sample):
-        from flash_attn.bert_padding import (
-            pad_input,
-            unpad_input,
-            index_first_axis,
-            rearrange,
+        self.solver_module, self.solver_module_config = self._build_model(
+            config=self.config
         )
-        from verl.utils.ulysses import (
-            ulysses_pad_and_slice_inputs,
-            gather_outpus_and_unpad,
+        self.rollout, self.rollout_sharding_manager = self._build_rollout()
+
+    def _build_rollout(self):
+        from torch.distributed.device_mesh import init_device_mesh
+
+        infer_tp = self.config.rollout.tensor_model_parallel_size
+        dp = self.world_size // infer_tp
+        assert (
+            self.world_size % infer_tp == 0
+        ), f"rollout world size {self.world_size} is not divisible by infer tp {infer_tp}"
+        rollout_device_mesh = init_device_mesh(
+            "cuda",
+            mesh_shape=(dp, infer_tp),
+            mesh_dim_names=["dp", "infer_tp"],
         )
 
-        with torch.no_grad(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            input_ids = micro_batch["input_ids"]
-            batch_size, seqlen = input_ids.shape
-            attention_mask = micro_batch["attention_mask"]
-            position_ids = micro_batch["position_ids"]
+        # strictly use vllm rollout for now and also ignore fire sampling for now
 
-            response_length = 200
+        from verl.workers.rollout.vllm_rollout import vLLMRollout, vllm_mode
+        from verl.workers.sharding_manager import FSDPVLLMShardingManager
 
-            # if self.use_remove_padding:
-            # input_ids_rmpad, indices, *_ = unpad_input(
-            #     input_ids.unsqueeze(-1), attention_mask
-            # )  # input_ids_rmpad (total_nnz, ...)
-            # input_ids_rmpad = input_ids_rmpad.transpose(0, 1)  # (1, total_nnz)
+        log_gpu_memory_usage("Before building vllm rollout", logger=logger)
+        local_path = copy_to_local(self.config.model.path)
 
-            # # unpad the position_ids to align the rotary
-            # position_ids_rmpad = index_first_axis(
-            #     rearrange(position_ids.unsqueeze(-1), "b s ... -> (b s) ..."),
-            #     indices,
-            # ).transpose(0, 1)
+        if vllm_mode == "customized":
+            rollout = vLLMRollout(
+                actor_module=self.solver_module,
+                config=self.config.rollout,
+                tokenizer=self.tokenizer,
+                model_hf_config=self.solver_module_config,
+            )
+        elif vllm_mode == "spmd":
+            rollout = vLLMRollout(
+                model_path=local_path,
+                config=self.config.rollout,
+                tokenizer=self.tokenizer,
+                model_hf_config=self.solver_module_config,
+                device_mesh=rollout_device_mesh,
+            )
+        else:
+            raise NotImplementedError(f"Invalid vllm mode: {vllm_mode}")
 
-            # # pad and slice the inputs if sp > 1
-            # if self.ulysses_sequence_parallel_size > 1:
-            #     input_ids_rmpad, position_ids_rmpad, pad_size = (
-            #         ulysses_pad_and_slice_inputs(
-            #             input_ids_rmpad,
-            #             position_ids_rmpad,
-            #             sp_size=self.ulysses_sequence_parallel_size,
-            #         )
-            #     )
+        log_gpu_memory_usage("After building vllm rollout", logger=logger)
 
-            # only pass input_ids and position_ids to enable flash_attn_varlen
-            output = self.solver_module.generate(
-                input_ids=input_ids,
-                attention_mask=None,
-                position_ids=position_ids,
-                do_sample=do_sample,
-                max_new_tokens=response_length,
-                generation_config=gen_config,
-                output_scores=False,
-                return_dict_in_generate=True,
-                use_cache=True,
+        if torch.distributed.get_world_size() == 1:
+            self.config.rollout.load_format == "dummy_hf"
+
+        rollout_sharding_manager = FSDPVLLMShardingManager(
+            module=self.solver_module,
+            inference_engine=rollout.inference_engine,
+            model_config=self.solver_module_config,
+            rollout_config=self.config.rollout,
+            full_params="hf" in self.config.rollout.load_format,
+            device_mesh=rollout_device_mesh,
+        )
+        log_gpu_memory_usage("After building vllm sharding manager", logger=logger)
+
+        return rollout, rollout_sharding_manager
+
+    @register(dispatch_mode=Dispatch.DP_COMPUTE_PROTO)
+    def generate_solution(self, prompts: DataProto):
+        import itertools
+        from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
+        from transformers import GenerationConfig
+
+        # Support all hardwares
+        prompts = prompts.to(torch.cuda.current_device())
+
+        solver_prompts = self._switch_chat_template(prompts)
+        solver_prompts.batch = solver_prompts.batch.to(torch.cuda.current_device())
+
+        if self._is_param_offload:
+            load_fsdp_model_to_gpu(self.solver_module)
+
+        meta_info = {
+            "eos_token_id": (
+                self.generation_config.eos_token_id
+                if self.generation_config is not None
+                else self.tokenizer.eos_token_id
+            ),
+            "pad_token_id": (
+                self.generation_config.pad_token_id
+                if self.generation_config is not None
+                else self.tokenizer.pad_token_id
+            ),
+        }
+
+        solver_prompts.meta_info.update(meta_info)
+
+        with self.rollout_sharding_manager:
+
+            if self._is_param_offload:
+                offload_fsdp_model_to_cpu(self.solver_module)
+
+            log_gpu_memory_usage(
+                "After entering solver rollout sharding manager", logger=logger
             )
 
-            seq = output.sequences
-
-            sequence_length = seqlen + response_length
-            delta_length = sequence_length - seq.shape[1]
-
-            # print(f"seqlen: {seqlen}")
-            # print(f"response_length: {response_length}")
-            # print(f"sequence_length: {sequence_length}")
-            # print(f"Initial seq: {seq.shape}")
-
-            if delta_length > 0:
-                delta_tokens = torch.ones(
-                    size=(batch_size, delta_length),
-                    device=seq.device,
-                    dtype=seq.dtype,
-                )
-                delta_tokens = self.tokenizer.pad_token_id * delta_tokens
-                seq = torch.cat((seq, delta_tokens), dim=1)
-            
-            # print(f"New seq: {seq.shape}")
-            
-            # assert seq.shape[1] == sequence_length
-
-            prompt = seq[:, :seqlen]  # (bs, prompt_length)
-            response = seq[:, seqlen:]  # (bs, response_length)
-
-            response_length = response.size(1)
-            delta_position_id = torch.arange(
-                1, response_length + 1, device=position_ids.device
+            solver_prompts = self.rollout_sharding_manager.preprocess_data(
+                data=solver_prompts
             )
-            delta_position_id = delta_position_id.unsqueeze(0).repeat(batch_size, 1)
-
-            response_position_ids = position_ids[:, -1:] + delta_position_id
-            position_ids = torch.cat([position_ids, response_position_ids], dim=-1)
-
-            response_attention_mask = get_eos_mask(
-                response_id=response,
-                eos_token=self.tokenizer.eos_token_id,
-                dtype=attention_mask.dtype,
-            )
-            # print(f"response_attention_mask: {response_attention_mask.shape}")
-            # print(f"attention_mask: {attention_mask.shape}")
-            # breakpoint()
-            attention_mask = torch.cat(
-                (attention_mask, response_attention_mask), dim=-1
+            output = self.rollout.generate_sequences(
+                prompts=solver_prompts,
+                solution=True,
             )
 
-            batch = TensorDict(
-                {
-                    # "prompts": prompt,
-                    "solutions": response,
-                    # "input_ids": seq,
-                    # "attention_mask": attention_mask,
-                    # "position_ids": position_ids,
-                },
-                batch_size=batch_size,
-            )
-            torch.cuda.empty_cache()
-            return DataProto(batch=batch)
+            log_gpu_memory_usage("After generating solutions", logger=logger)
 
-            # reward_rmpad = output.logits
-            # reward_rmpad = reward_rmpad.squeeze(0)  # (total_nnz)
+            output = self.rollout_sharding_manager.postprocess_data(data=output)
 
-            # # gather output if sp > 1
-            # if self.ulysses_sequence_parallel_size > 1:
-            #     reward_rmpad = gather_outpus_and_unpad(
-            #         reward_rmpad, gather_dim=0, unpad_dim=0, padding_size=pad_size
-            #     )
+        output = output.to("cpu")
 
-            # # pad it back
-            # rm_score = pad_input(
-            #     reward_rmpad, indices=indices, batch=batch_size, seqlen=seqlen
-            # ).squeeze(-1)
-            # else:
-            # output = self.solver_module(
-            #     input_ids=input_ids,
-            #     attention_mask=attention_mask,
-            #     position_ids=position_ids,
-            # )
-            # rm_score = output.logits  # (batch_size, seq_len, 1)
-            # rm_score = rm_score.squeeze(-1)
-
-            # extract the result of the last valid token
-            # eos_mask_idx = torch.argmax(position_ids * attention_mask, dim=-1)  # (bsz,)
-            # rm_score = rm_score[torch.arange(batch_size), eos_mask_idx]
-            # return rm_score
-
-    def _expand_to_token_level(self, data: DataProto, scores: torch.Tensor):
-        batch_size = data.batch.batch_size[0]
-        # expand as token_level_reward
-        attention_mask = data.batch["attention_mask"]
-        position_ids = data.batch["position_ids"]
-        response_length = data.batch["responses"].shape[-1]
-        eos_mask_idx = torch.argmax(position_ids * attention_mask, dim=-1)  # (bsz,)
-        token_level_scores = torch.zeros_like(
-            attention_mask, dtype=scores.dtype
-        )  # (bsz, seqlen)
-        token_level_scores[torch.arange(batch_size), eos_mask_idx] = scores
-
-        # select the response part
-        token_level_scores = token_level_scores[:, -response_length:]
-
-        return token_level_scores
+        return output
 
     def _switch_chat_template(self, data: DataProto):
         src_max_length = data.batch["attention_mask"].shape[-1]
@@ -1792,7 +1836,14 @@ class SolverModelWorker(Worker):
             chat: list = [
                 {
                     "role": "system",
-                    "content": "Write python code to solve the given question",
+                    "content": (
+                        "You are a Python programming assistant. When given a programming problem, write ONLY the complete Python solution code."
+                        "Do not explain, do not add comments outside the code, do not continue the problem description."
+                        "Write the complete, runnable Python code that solves the given problem including library imports"
+                        "The solution must read input **exactly as described** in the problem statement (e.g., using `input()` or `sys.stdin` as needed)."
+                        "The program must process the input and print the output as required by the problem — nothing more, nothing less."
+                        "Enclose your solution in a Python code block with triple backticks."
+                    ),
                 }
             ]
             # extract response
@@ -1808,7 +1859,10 @@ class SolverModelWorker(Worker):
             # remove bos and eos
             response = response.replace(src_tokenizer.eos_token, "")
 
-            chat.append({"role": "user", "content": response})
+            # Add clear instruction that this is a problem to solve, not complete
+            problem_instruction = f"Solve this programming problem and provide ONLY the Python code solution:\n\n{response}\n\nProvide your solution:"
+            chat.append({"role": "user", "content": problem_instruction})
+            # Don't add empty assistant message - let the model generate from here
 
             prompt_with_chat_template = target_tokenizer.apply_chat_template(
                 chat, add_generation_prompt=False, tokenize=False
@@ -1826,9 +1880,12 @@ class SolverModelWorker(Worker):
                 tokenizer=target_tokenizer,
                 max_length=max_length,
                 pad_token_id=target_tokenizer.pad_token_id,
-                left_pad=False,  # right padding
-                truncation=self.config.get("truncation", "right"),
-            )  # truncate from the right
+                left_pad=True,  # left padding - vLLM expects left-padded inputs
+                truncation=self.config.get("truncation", "left"),
+            )  # truncate from the left
+
+            final_prompts = target_tokenizer.decode(input_ids[0])
+            print(f"Final prompts: {final_prompts}")
 
             rm_input_ids.append(input_ids)
             rm_attention_mask.append(attention_mask)
@@ -1845,97 +1902,3 @@ class SolverModelWorker(Worker):
         }
 
         return DataProto.from_dict(rm_inputs)
-
-    @register(dispatch_mode=Dispatch.DP_COMPUTE_PROTO)
-    def generate_solution(self, data: DataProto):
-        import itertools
-        from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
-        from transformers import GenerationConfig
-
-        # Support all hardwares
-        data = data.to(torch.cuda.current_device())
-        if self._do_switch_chat_template:
-            prompts = self._switch_chat_template(data)
-
-        # Support all hardwares
-        prompts.batch = prompts.batch.to(torch.cuda.current_device())
-
-        #  meta_info = {
-        #     "eos_token_id": (
-        #         self.generation_config.eos_token_id
-        #         if self.generation_config is not None
-        #         else self.tokenizer.eos_token_id
-        #     ),
-        #     "pad_token_id": (
-        #         self.generation_config.pad_token_id
-        #         if self.generation_config is not None
-        #         else self.tokenizer.pad_token_id
-        #     ),
-        # }
-
-        # perform forward computation
-        with self.ulysses_sharding_manager:
-            prompts = self.ulysses_sharding_manager.preprocess_data(data=prompts)
-            data = self.ulysses_sharding_manager.preprocess_data(data=data)
-
-            use_dynamic_bsz = self.config.use_dynamic_bsz
-            if use_dynamic_bsz:
-                max_token_len = (
-                    self.config.forward_max_token_len_per_gpu
-                    * self.ulysses_sequence_parallel_size
-                )
-                micro_batches, indices = rearrange_micro_batches(
-                    batch=prompts.batch, max_token_len=max_token_len
-                )
-            else:
-                micro_batches = prompts.batch.split(
-                    self.config.micro_batch_size_per_gpu
-                )
-            output = []
-            # make sampling args can be overriden by inputs
-            do_sample = data.meta_info.get("do_sample", self.config.do_sample)
-            response_length = data.meta_info.get(
-                "response_length", self.config.response_length
-            )
-            top_p = data.meta_info.get("top_p", self.config.get("top_p", 1.0))
-            top_k = data.meta_info.get("top_k", self.config.get("top_k", 0))
-
-            if top_k is None:
-                top_k = 0
-            top_k = max(0, top_k)  # to be compatible with vllm
-
-            temperature = prompts.meta_info.get("temperature", self.config.temperature)
-
-            generation_config = GenerationConfig(
-                temperature=temperature, top_p=top_p, top_k=top_k
-            )
-
-            for micro_batch in micro_batches:
-                solution = self._forward_micro_batch(
-                    micro_batch, generation_config, do_sample
-                )
-                output.append(solution)
-            # scores = torch.cat(output, dim=0)  # (batch_size)
-            output = DataProto.concat(output)
-
-            # if use_dynamic_bsz:
-            #     indices = list(itertools.chain.from_iterable(indices))
-            #     assert len(indices) == scores.size(
-            #         0
-            #     ), f"{len(indices)} vs. {scores.size()}"
-            #     revert_indices = torch.tensor(
-            #         get_reverse_idx(indices), dtype=torch.long
-            #     )
-            #     scores = scores[revert_indices]
-
-            # token_level_scores = self._expand_to_token_level(data, scores)
-            # # Note that this is only the scores, may not be the final rewards used to train RL
-            # output = DataProto.from_dict(tensors={"rm_scores": token_level_scores})
-            output = self.ulysses_sharding_manager.postprocess_data(data=output)
-
-        # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes
-        # unshard the root FSDP module
-        # self.solver_module._handle.reshard(True)
-
-        output = output.to("cpu")
-        return output

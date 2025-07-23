@@ -50,12 +50,16 @@ from verl.third_party.vllm import vllm_version
 def _pre_process_inputs(pad_token_id, prompt_token_ids: torch.Tensor) -> List[int]:
     # remove the left padding in the prompt token_id
     # pad_token_id = self.llm_engine.tokenizer.pad_token_id if self.llm_engine.tokenizer.pad_token_id is not None else self.llm_engine.tokenizer.eos_token_id
-    non_pad_index = torch.nonzero(prompt_token_ids != pad_token_id, as_tuple=False)[0][0]
+    non_pad_index = torch.nonzero(prompt_token_ids != pad_token_id, as_tuple=False)[0][
+        0
+    ]
     token_ids = prompt_token_ids[non_pad_index:].tolist()
     return token_ids
 
 
-def _repeat_interleave(value: Union[torch.Tensor, np.ndarray], repeats: int) -> Union[torch.Tensor, List[Any]]:
+def _repeat_interleave(
+    value: Union[torch.Tensor, np.ndarray], repeats: int
+) -> Union[torch.Tensor, List[Any]]:
     if isinstance(value, torch.Tensor):
         return value.repeat_interleave(repeats, dim=0)
     else:
@@ -64,7 +68,9 @@ def _repeat_interleave(value: Union[torch.Tensor, np.ndarray], repeats: int) -> 
 
 class vLLMRollout(BaseRollout):
 
-    def __init__(self, model_path: str, config: DictConfig, tokenizer, model_hf_config, **kwargs):
+    def __init__(
+        self, model_path: str, config: DictConfig, tokenizer, model_hf_config, **kwargs
+    ):
         """A vLLM rollout. It requires the module is supported by the vllm.
 
         Args:
@@ -76,46 +82,153 @@ class vLLMRollout(BaseRollout):
         """
         super().__init__()
         self.config = config
-        assert not (not config.enforce_eager and config.free_cache_engine), \
-            "disable CUDA graph (enforce_eager = False) if free cache engine"
+        assert not (
+            not config.enforce_eager and config.free_cache_engine
+        ), "disable CUDA graph (enforce_eager = False) if free cache engine"
 
-        tensor_parallel_size = self.config.get('tensor_model_parallel_size', 1)
-        assert tensor_parallel_size <= torch.distributed.get_world_size(), \
-            "tensor parallel size should be less than or equal to the world size"
-        max_num_batched_tokens = self.config.get('max_num_batched_tokens', 8192)
+        tensor_parallel_size = self.config.get("tensor_model_parallel_size", 1)
+        assert (
+            tensor_parallel_size <= torch.distributed.get_world_size()
+        ), "tensor parallel size should be less than or equal to the world size"
+        max_num_batched_tokens = self.config.get("max_num_batched_tokens", 8192)
 
-        if kwargs.get('train_tp', None) is not None:
+        if kwargs.get("train_tp", None) is not None:
             # deployed with megatron
             import os
-            os.environ['CUDA_TIMER_STREAM_KAFKA_ENABLE'] = '0'
-            os.environ['MEGATRON_IMPORT_TIMERS'] = '0'
-            train_tp = kwargs.get('train_tp', None)
+
+            os.environ["CUDA_TIMER_STREAM_KAFKA_ENABLE"] = "0"
+            os.environ["MEGATRON_IMPORT_TIMERS"] = "0"
+            train_tp = kwargs.get("train_tp", None)
             num_tp_per_train_tp = train_tp // tensor_parallel_size
-            vllm_ps.initialize_parallel_state(tensor_model_parallel_size=tensor_parallel_size,
-                                              num_tp_per_train_tp=num_tp_per_train_tp)
+            vllm_ps.initialize_parallel_state(
+                tensor_model_parallel_size=tensor_parallel_size,
+                num_tp_per_train_tp=num_tp_per_train_tp,
+            )
 
-        assert model_hf_config.max_position_embeddings >= config.prompt_length + config.response_length, \
-            "model context length should be greater than total sequence length"
+        assert (
+            model_hf_config.max_position_embeddings
+            >= config.prompt_length + config.response_length
+        ), "model context length should be greater than total sequence length"
 
-        self.inference_engine = LLM(
-            model=model_path,
-            enable_sleep_mode=True,
-            tensor_parallel_size=tensor_parallel_size,
-            distributed_executor_backend="external_launcher",
-            dtype=config.dtype,
-            enforce_eager=config.enforce_eager,
-            gpu_memory_utilization=config.gpu_memory_utilization,
-            disable_custom_all_reduce=True,
-            skip_tokenizer_init=False,
-            max_model_len=config.prompt_length + config.response_length,
-            disable_log_stats=config.disable_log_stats,
-            max_num_batched_tokens=max_num_batched_tokens,
-            enable_chunked_prefill=config.enable_chunked_prefill,
-            enable_prefix_caching=True,
-        )
+        # Add retry logic for Hugging Face Hub rate limiting
+        import time
+        import random
+
+        max_retries = 5
+        base_delay = 2
+
+        # Proactively set pooling configuration for embedding models
+        pooling_type = None
+        if "embedding" in model_path.lower() or "embed" in model_path.lower():
+            print("Detected embedding model, using mean pooling configuration...")
+            pooling_type = "mean"
+        elif kwargs.get("task") == "score":
+            pooling_type = "mean"
+
+        for attempt in range(max_retries):
+            try:
+                # Add safety check for model path
+                import os
+
+                # if not os.path.exists(model_path):
+                #     raise ValueError(f"Model path does not exist: {model_path}")
+
+                self.inference_engine = LLM(
+                    model=model_path,
+                    tensor_parallel_size=tensor_parallel_size,
+                    distributed_executor_backend="external_launcher",
+                    dtype=config.dtype,
+                    enforce_eager=config.enforce_eager,
+                    gpu_memory_utilization=config.gpu_memory_utilization,
+                    disable_custom_all_reduce=True,
+                    skip_tokenizer_init=False,
+                    max_model_len=config.max_model_len,
+                    disable_log_stats=config.disable_log_stats,
+                    max_num_batched_tokens=max_num_batched_tokens,
+                    enable_chunked_prefill=config.enable_chunked_prefill,
+                    enable_prefix_caching=True,
+                    hf_token=config.hf_token,
+                    task=kwargs.get("task", "generate"),
+                    seed=self.config.get("seed", 0),
+                    max_num_seqs=config.max_num_seqs,
+                    enable_sleep_mode=config.enable_sleep_mode,
+                    # Add pooling configuration if needed
+                )
+                break  # Success, exit retry loop
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str or "Too Many Requests" in error_str:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2**attempt) + random.uniform(0, 1)
+                        print(
+                            f"Hugging Face Hub rate limit hit (attempt {attempt + 1}/{max_retries}). Retrying in {delay:.2f} seconds..."
+                        )
+                        time.sleep(delay)
+                        continue
+                    else:
+                        print(
+                            f"Failed to initialize LLM after {max_retries} attempts due to rate limiting. Error: {e}"
+                        )
+                        raise
+                elif (
+                    "NoneType" in error_str
+                    and "items" in error_str
+                    and "pooling" in error_str
+                ):
+                    # Handle pooling configuration error
+                    print(f"Pooling configuration error detected: {e}")
+                    print(
+                        "This might be due to model configuration issues. Trying with different settings..."
+                    )
+
+                    # Check if this is an embedding model that needs pooling
+                    if (
+                        "embedding" in model_path.lower()
+                        or "embed" in model_path.lower()
+                    ):
+                        print(
+                            "Detected embedding model, using mean pooling configuration..."
+                        )
+                        pooling_type = "mean"
+                    else:
+                        pooling_type = "mean" if kwargs.get("task") == "score" else None
+
+                    # Try with explicit pooling configuration
+                    try:
+                        self.inference_engine = LLM(
+                            model=model_path,
+                            tensor_parallel_size=tensor_parallel_size,
+                            distributed_executor_backend="external_launcher",
+                            dtype=config.dtype,
+                            enforce_eager=config.enforce_eager,
+                            gpu_memory_utilization=config.gpu_memory_utilization,
+                            disable_custom_all_reduce=True,
+                            skip_tokenizer_init=False,
+                            max_model_len=config.max_model_len,
+                            disable_log_stats=config.disable_log_stats,
+                            max_num_batched_tokens=max_num_batched_tokens,
+                            enable_chunked_prefill=config.enable_chunked_prefill,
+                            enable_prefix_caching=True,
+                            hf_token=config.hf_token,
+                            task=kwargs.get("task", "generate"),
+                            seed=self.config.get("seed", 0),
+                            max_num_seqs=config.max_num_seqs,
+                            enable_sleep_mode=config.enable_sleep_mode,
+                            # Add explicit pooling configuration to avoid the error
+                        )
+                        break  # Success, exit retry loop
+                    except Exception as e2:
+                        print(
+                            f"Failed to initialize LLM with explicit pooling config: {e2}"
+                        )
+                        raise e2
+                else:
+                    # Non-rate-limit error, don't retry
+                    raise
 
         # Offload vllm model to reduce peak memory usage
-        self.inference_engine.sleep(level=1)
+        if self.config.enable_sleep_mode:
+            self.inference_engine.sleep(level=1)
 
         kwargs = dict(
             n=1,
@@ -124,8 +237,8 @@ class vLLMRollout(BaseRollout):
         )
 
         # # we may detokenize the result all together later
-        if vllm_version != '0.3.1':
-            kwargs['detokenize'] = False
+        if vllm_version != "0.3.1":
+            kwargs["detokenize"] = False
 
         # supporting adding any sampling params from the config file
         for k in config.keys():
@@ -156,55 +269,73 @@ class vLLMRollout(BaseRollout):
     @torch.no_grad()
     def generate_sequences(self, prompts: DataProto, **kwargs) -> DataProto:
         # rebuild vllm cache engine
-        if vllm_version in ('0.3.1', '0.4.2', '0.5.4', '0.6.3') and self.config.free_cache_engine:
+        if (
+            vllm_version in ("0.3.1", "0.4.2", "0.5.4", "0.6.3")
+            and self.config.free_cache_engine
+        ):
             self.inference_engine.init_cache_engine()
 
-        idx = prompts.batch['input_ids']  # (bs, prompt_length)
+        is_solution = kwargs.get("solution", False)
+
+        idx = prompts.batch["input_ids"]  # (bs, prompt_length)
         # left-padded attention_mask
-        attention_mask = prompts.batch['attention_mask']
-        position_ids = prompts.batch['position_ids']
+        attention_mask = prompts.batch["attention_mask"]
+        position_ids = prompts.batch["position_ids"]
 
         # used to construct attention_mask
-        eos_token_id = prompts.meta_info['eos_token_id']
+        eos_token_id = prompts.meta_info["eos_token_id"]
 
         batch_size = idx.size(0)
 
         non_tensor_batch = prompts.non_tensor_batch
-        if 'raw_prompt_ids' not in non_tensor_batch:
-            non_tensor_batch['raw_prompt_ids'] = np.array(
-                [_pre_process_inputs(self.pad_token_id, idx[i]) for i in range(batch_size)], dtype=object)
+        if "raw_prompt_ids" not in non_tensor_batch:
+            non_tensor_batch["raw_prompt_ids"] = np.array(
+                [
+                    _pre_process_inputs(self.pad_token_id, idx[i])
+                    for i in range(batch_size)
+                ],
+                dtype=object,
+            )
 
-        if batch_size != len(non_tensor_batch['raw_prompt_ids']):
-            raise RuntimeError('vllm sharding manager is not work properly.')
+        if batch_size != len(non_tensor_batch["raw_prompt_ids"]):
+            raise RuntimeError("vllm sharding manager is not work properly.")
 
-        if 'multi_modal_data' in non_tensor_batch:
+        if "multi_modal_data" in non_tensor_batch:
             vllm_inputs = []
-            for raw_prompt_ids, multi_modal_data in zip(non_tensor_batch.pop('raw_prompt_ids'),
-                                                        non_tensor_batch.pop('multi_modal_data')):
-                vllm_inputs.append({'prompt_token_ids': raw_prompt_ids, 'multi_modal_data': multi_modal_data})
+            for raw_prompt_ids, multi_modal_data in zip(
+                non_tensor_batch.pop("raw_prompt_ids"),
+                non_tensor_batch.pop("multi_modal_data"),
+            ):
+                vllm_inputs.append(
+                    {
+                        "prompt_token_ids": raw_prompt_ids,
+                        "multi_modal_data": multi_modal_data,
+                    }
+                )
         else:
-            vllm_inputs = [{
-                'prompt_token_ids': raw_prompt_ids
-            } for raw_prompt_ids in non_tensor_batch.pop('raw_prompt_ids')]
+            vllm_inputs = [
+                {"prompt_token_ids": raw_prompt_ids}
+                for raw_prompt_ids in non_tensor_batch.pop("raw_prompt_ids")
+            ]
 
-        do_sample = prompts.meta_info.get('do_sample', True)
-        is_validate = prompts.meta_info.get('validate', False)
+        do_sample = prompts.meta_info.get("do_sample", True)
+        is_validate = prompts.meta_info.get("validate", False)
         if not do_sample:
             kwargs = {
-                'best_of': 1,
-                'top_p': 1.0,
-                'top_k': -1,
-                'min_p': 0.0,
-                'temperature': 0,
-                'n': 1  # if greedy, only 1 response
+                "best_of": 1,
+                "top_p": 1.0,
+                "top_k": -1,
+                "min_p": 0.0,
+                "temperature": 0,
+                "n": 1,  # if greedy, only 1 response
             }
         elif is_validate:
             # TODO: try **
             kwargs = {
-                'top_k': self.config.val_kwargs.top_k,
-                'top_p': self.config.val_kwargs.top_p,
-                'temperature': self.config.val_kwargs.temperature,
-                'n': self.config.val_kwargs.n,
+                "top_k": self.config.val_kwargs.top_k,
+                "top_p": self.config.val_kwargs.top_p,
+                "temperature": self.config.val_kwargs.temperature,
+                "n": self.config.val_kwargs.n,
             }
 
         # users can customize different sampling_params at different run
@@ -212,7 +343,8 @@ class vLLMRollout(BaseRollout):
             outputs = self.inference_engine.generate(
                 prompts=vllm_inputs,  # because we have already convert it to prompt token id
                 sampling_params=self.sampling_params,
-                use_tqdm=False)
+                use_tqdm=False,
+            )
 
             # TODO(sgm): disable logprob when recompute_log_prob is enable
             # if n = 1: (bs, response_length) ; if n > 1: (bs * n, response_length)
@@ -222,49 +354,84 @@ class vLLMRollout(BaseRollout):
                 for sample_id in range(len(output.outputs)):
                     response.append(output.outputs[sample_id].token_ids)
 
-            response = pad_2d_list_to_length(response, self.pad_token_id,
-                                             max_length=self.config.response_length).to(idx.device)
+            response = pad_2d_list_to_length(
+                response, self.pad_token_id, max_length=self.config.response_length
+            ).to(idx.device)
 
             if self.sampling_params.n > 1 and do_sample:
                 idx = _repeat_interleave(idx, self.sampling_params.n)
-                attention_mask = _repeat_interleave(attention_mask, self.sampling_params.n)
+                attention_mask = _repeat_interleave(
+                    attention_mask, self.sampling_params.n
+                )
                 position_ids = _repeat_interleave(position_ids, self.sampling_params.n)
                 batch_size = batch_size * self.sampling_params.n
-                if 'multi_modal_inputs' in non_tensor_batch.keys():
-                    non_tensor_batch['multi_modal_inputs'] = _repeat_interleave(non_tensor_batch['multi_modal_inputs'],
-                                                                                self.sampling_params.n)
+                if "multi_modal_inputs" in non_tensor_batch.keys():
+                    non_tensor_batch["multi_modal_inputs"] = _repeat_interleave(
+                        non_tensor_batch["multi_modal_inputs"], self.sampling_params.n
+                    )
 
-            seq = torch.cat([idx, response], dim=-1)
+            seq = response if is_solution else torch.cat([idx, response], dim=-1)
 
-        response_length = response.size(1)
-        delta_position_id = torch.arange(1, response_length + 1, device=position_ids.device)
-        delta_position_id = delta_position_id.unsqueeze(0).expand(batch_size, -1)
-        if position_ids.dim() == 3:  # qwen2vl mrope
-            delta_position_id = delta_position_id.view(batch_size, 1, -1).expand(batch_size, 3, -1)
+        if not is_solution:
 
-        # TODO(sgm): fix position_ids on right_pad
-        # prompt: left pad + response: right pad
-        # attention_mask: [0,0,0,0,1,1,1,1, | 1,1,1,0,0,0,0,0]
-        # position_ids:   [0,0,0,0,0,1,2,3, | 4,5,6,7,8,9,10,11]
-        response_position_ids = position_ids[:, -1:] + delta_position_id
-        position_ids = torch.cat([position_ids, response_position_ids], dim=-1)
-        response_attention_mask = get_eos_mask(response_id=response, eos_token=eos_token_id, dtype=attention_mask.dtype)
-        attention_mask = torch.cat((attention_mask, response_attention_mask), dim=-1)
+            response_length = response.size(1)
+            delta_position_id = torch.arange(
+                1, response_length + 1, device=position_ids.device
+            )
+            delta_position_id = delta_position_id.unsqueeze(0).expand(batch_size, -1)
+            if position_ids.dim() == 3:  # qwen2vl mrope
+                delta_position_id = delta_position_id.view(batch_size, 1, -1).expand(
+                    batch_size, 3, -1
+                )
 
-        # all the tp ranks should contain the same data here. data in all ranks are valid
-        batch = TensorDict(
-            {
-                'prompts': idx,
-                'responses': response,
-                'input_ids': seq,  # here input_ids become the whole sentences
-                # 'old_log_probs': log_probs, # we will recompute old log prob with actor
-                'attention_mask': attention_mask,
-                'position_ids': position_ids
-            },
-            batch_size=batch_size)
+            # TODO(sgm): fix position_ids on right_pad
+            # prompt: left pad + response: right pad
+            # attention_mask: [0,0,0,0,1,1,1,1, | 1,1,1,0,0,0,0,0]
+            # position_ids:   [0,0,0,0,0,1,2,3, | 4,5,6,7,8,9,10,11]
+            response_position_ids = position_ids[:, -1:] + delta_position_id
+            position_ids = torch.cat([position_ids, response_position_ids], dim=-1)
+            response_attention_mask = get_eos_mask(
+                response_id=response, eos_token=eos_token_id, dtype=attention_mask.dtype
+            )
+            attention_mask = torch.cat(
+                (attention_mask, response_attention_mask), dim=-1
+            )
+
+            # all the tp ranks should contain the same data here. data in all ranks are valid
+            batch = TensorDict(
+                {
+                    "prompts": idx,
+                    "responses": response,
+                    "input_ids": seq,  # here input_ids become the whole sentences
+                    # 'old_log_probs': log_probs, # we will recompute old log prob with actor
+                    "attention_mask": attention_mask,
+                    "position_ids": position_ids,
+                },
+                batch_size=batch_size,
+            )
+        else:
+            batch = TensorDict(
+                {
+                    "solutions": response,
+                },
+                batch_size=batch_size,
+            )
 
         # free vllm cache engine
-        if vllm_version in ('0.3.1', '0.4.2', '0.5.4', '0.6.3') and self.config.free_cache_engine:
+        if (
+            vllm_version in ("0.3.1", "0.4.2", "0.5.4", "0.6.3")
+            and self.config.free_cache_engine
+        ):
             self.inference_engine.free_cache_engine()
 
         return DataProto(batch=batch, non_tensor_batch=non_tensor_batch)
+
+    def get_similarity_scores(self, prompts: DataProto, tokenizer) -> List[float]:
+        prompt_ids = prompts.batch["responses"]
+        prompt_str = tokenizer.batch_decode(prompt_ids, skip_special_tokens=True)
+
+        reference_str = prompts.non_tensor_batch["reference"]
+
+        scores = self.inference_engine.score(prompt_str, reference_str)
+
+        return scores

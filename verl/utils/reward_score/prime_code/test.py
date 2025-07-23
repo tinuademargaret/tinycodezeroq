@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import re
+import traceback
+import multiprocessing
+from typing import Dict, Optional
+from datasets import load_dataset
+import traceback
+import os, sys
 import ast
 import json
 import sys
@@ -777,3 +785,149 @@ def reliability_guard(maximum_memory_bytes=None):
     sys.modules["resource"] = None
     sys.modules["psutil"] = None
     sys.modules["tkinter"] = None
+
+
+def _temp_run(sample, generation, debug, result, metadata_list, timeout):
+    with open(os.devnull, "w") as devnull:
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            res, metadata = run_test(
+                in_outs=sample, test=generation, debug=debug, timeout=timeout
+            )
+            result.append(res)
+            metadata_list.append(metadata)
+        except Exception as e:
+            # print(e) # some tracebacks are extremely long.
+            traceback.print_exc(10)
+            result.append([-1 for i in range(len(sample["inputs"]))])
+            metadata_list.append({})
+
+
+def check_correctness(in_outs: Optional[dict], generation, timeout=10, debug=True):
+    """Check correctness of code generation with a global timeout.
+    The global timeout is to catch some extreme/rare cases not handled by the timeouts
+    inside `run_test`"""
+
+    manager = multiprocessing.Manager()
+    result = manager.list()
+    metadata_list = manager.list()
+    p = multiprocessing.Process(
+        target=_temp_run,
+        args=(in_outs, generation, debug, result, metadata_list, timeout),
+    )
+    p.start()
+    p.join(timeout=timeout + 1)
+    if p.is_alive():
+        p.kill()
+        # p.terminate()
+    if not result:
+        # consider that all tests failed
+        result = [[-1 for i in range(len(in_outs["inputs"]))]]
+        if debug:
+            print(f"global timeout")
+    return result[0], metadata_list
+
+
+def compute_score(completion, test_cases, continuous=False):
+    # try to get code solution from completion. if the completion is pure code, this will not take effect.
+    solution = completion.split("```python")[-1].split("```")[0]
+    print(solution)
+    try:
+        try:
+            if not isinstance(test_cases, dict):
+                test_cases = json.loads(test_cases)
+        except Exception as e:
+            print(f"Error:{e}")
+
+        # Complete check on all in-out pairs first. If there is no failure, per-sample test can be skipped.
+        try:
+            res, metadata = check_correctness(
+                in_outs=test_cases, generation=solution, timeout=5, debug=False
+            )
+            metadata = dict(enumerate(metadata))[0]
+            success = all(map(lambda x: x == True, res))
+            if success:
+                return success, metadata
+        except Exception as e:
+            pass
+
+        test_cases_list = []
+        inputs = test_cases["inputs"]
+        outputs = test_cases["outputs"]
+        for i in range(len(inputs)):
+            test_cases_list.append({"inputs": [inputs[i]], "outputs": [outputs[i]]})
+
+        if continuous:
+            # per sample test: if continuous score is needed, test first 10 samples regardless of failures
+            # do not test all samples cuz some problems have enormous test cases
+            metadata_list = []
+            res_list = []
+            for test_case_id, test_case in enumerate(test_cases_list):
+                res, metadata = check_correctness(
+                    in_outs=test_case, generation=solution, timeout=5, debug=False
+                )
+                try:
+                    metadata = dict(enumerate(metadata))[
+                        0
+                    ]  # metadata can be empty occasionally
+                except Exception as e:
+                    metadata = {}
+                metadata["test_case"] = {}
+                metadata["test_case"]["input"] = str(test_case["inputs"][0])
+                metadata["test_case"]["output"] = str(test_case["outputs"][0])
+                metadata["test_case"]["res"] = str(res)
+                metadata_list.append(metadata)
+                res_list.extend(res)
+
+                if test_case_id >= 9:
+                    break
+            res_count = len(res_list) if len(res_list) > 0 else 1
+            success = sum(map(lambda x: x == True, res_list)) / res_count
+    except Exception as e:
+        traceback.print_exc(10)
+        success = False
+        metadata_list = None
+    return success, metadata_list
+
+
+if __name__ == "__main__":
+    test_2 = "from sys import stdin, stdout\nt = int(stdin.readline())\n\ndef calculate(a, b):\n\tif len(a) == 0 or len(b) == 0:\n\t\treturn 0\n\tif b[-1] < a[0]:\n\t\treturn 0\n\tb_already = [0] * len(b)\n\tb_isin = [i + 1 for i in range(len(b))]\n\tb_map = [0] * len(b)\n\ta_pointer = 0\n\tb_pointer = 0\n\twhile b[b_pointer] < a[0]:\n\t\tb_pointer += 1\n\twhile a_pointer + 1 < len(a) and a[a_pointer + 1] <= b[b_pointer]:\n\t\ta_pointer += 1\n\tisin_pointer = 0\n\twhile True:\n\t\twhile b[isin_pointer] < b[b_pointer] - a_pointer:\n\t\t\tisin_pointer += 1\n\t\tb_isin[b_pointer] = isin_pointer\n\t\tif b[b_pointer] == a[a_pointer]:\n\t\t\tb_already[b_pointer] = 1\n\t\tb_map[b_pointer] = a_pointer + 1\n\t\tif b_pointer + 1 == len(b):\n\t\t\tbreak\n\t\tb_pointer += 1\n\t\twhile a_pointer + 1 < len(a) and a[a_pointer + 1] <= b[b_pointer]:\n\t\t\ta_pointer += 1\n\talready_matched = sum(b_already)\n\tanswer = 0\n\tfor i in range(len(b)):\n\t\tif b_already[i] == 1:\n\t\t\talready_matched -= 1\n\t\tanswer = max(answer, i - b_isin[i] + 1 + already_matched)\n\treturn answer\nfor _ in range(t):\n\t(n, m) = [int(x) for x in stdin.readline().split()]\n\ta_negative = []\n\ta_positive = []\n\ta = [int(x) for x in stdin.readline().split()]\n\tif a[0] > 0:\n\t\ta_positive = a\n\telif a[-1] < 0:\n\t\ta_negative = [a[n - 1 - i] * -1 for i in range(n)]\n\telse:\n\t\tfront = 0\n\t\tback = n - 1\n\t\twhile back - front > 1:\n\t\t\tif a[(front + back) // 2] > 0:\n\t\t\t\tback = (front + back) // 2\n\t\t\telse:\n\t\t\t\tfront = (front + back) // 2\n\t\ta_negative = [a[front - i] * -1 for i in range(front + 1)]\n\t\ta_positive = a[back:]\n\tb_negative = []\n\tb_positive = []\n\tb = [int(x) for x in stdin.readline().split()]\n\tif b[0] > 0:\n\t\tb_positive = b\n\telif b[-1] < 0:\n\t\tb_negative = [b[m - 1 - i] * -1 for i in range(m)]\n\telse:\n\t\tfront = 0\n\t\tback = m - 1\n\t\twhile back - front > 1:\n\t\t\tif b[(front + back) // 2] > 0:\n\t\t\t\tback = (front + back) // 2\n\t\t\telse:\n\t\t\t\tfront = (front + back) // 2\n\t\tb_negative = [b[front - i] * -1 for i in range(front + 1)]\n\t\tb_positive = b[back:]\n\tprint(str(calculate(a_positive, b_positive) + calculate(a_negative, b_negative)))"
+
+    # in_outs_2 = {"inputs": ["5\\n5 6\\n-1 1 5 11 15\\n-4 -3 -2 6 7 15\\n2 2\\n-1 1\\n-1000000000 1000000000\\n2 2\\n-1000000000 1000000000\\n-1 1\\n3 5\\n-1 1 2\\n-2 -1 1 2 5\\n2 1\\n1 2\\n10\\n", "1\\n10 10\\n-963625377 -868027420 -582832806 -399654630 -299751944 -233765513 -220763772 115612869 134734706 330611632\\n-836519191 -611761365 -306272 8975969 469083185 681128970 789056642 862703103 881641726 895240878\\n", "1\\n2 4\\n-2 -1\\n-7 -5 -2 -1\\n"], "outputs": ["4\\n2\\n0\\n3\\n1\\n", "2\\n", "2\\n", "2\\n",]}
+    in_outs_2 = {
+        "inputs": [
+            "5\\n5 6\\n-1 1 5 11 15\\n-4 -3 -2 6 7 15\\n2 2\\n-1 1\\n-1000000000 1000000000\\n2 2\\n-1000000000 1000000000\\n-1 1\\n3 5\\n-1 1 2\\n-2 -1 1 2 5\\n2 1\\n1 2\\n10\\n",
+            "1\\n10 10\\n-963625377 -868027420 -582832806 -399654630 -299751944 -233765513 -220763772 115612869 134734706 330611632\\n-836519191 -611761365 -306272 8975969 469083185 681128970 789056642 862703103 881641726 895240878\\n",
+            "1\\n2 4\\n-2 -1\\n-7 -5 -2 -1\\n",
+        ],
+        "outputs": [
+            "4\\n2\\n0\\n3\\n1\\n",
+            "2\\n",
+            "2\\n",
+            "2\\n",
+        ],
+    }
+    in_outs_1 = {
+        "inputs": ["3\\n3\\n4\\n7\\n", "3\\n3\\n4\\n7\\n", "1\\n1\\n", "2\\n2\\n3\\n"],
+        "outputs": [
+            "1 0 2 \\n0 3 2 1 \\n1 0 2 6 5 4 3 \\n",
+            "1 0 2 \\n0 3 2 1 \\n1 0 2 6 5 4 3 \\n",
+            "0\\n",
+            "1 0\\n2 1 0\\n",
+        ],
+    }
+
+    test_1 = "```pythonfrom sys import stdin\nrd = stdin.readline\n\ndef rec(n):\n\tif n <= -1:\n\t\treturn\n\ts = int((2 * n) ** 0.5) ** 2\n\tl = s - n\n\trec(l - 1)\n\twhile l <= n:\n\t\tans[l] = n\n\t\tans[n] = l\n\t\tl += 1\n\t\tn -= 1\nfor _ in range(int(rd())):\n\tn = int(rd())\n\tans = [0] * n\n\trec(n - 1)\n\tfor i in range(n):\n\t\tprint(ans[i], end=' ')\n\tprint()\n```"
+
+    in_outs = {"inputs": ["5\\n", "6\\n", "7\\n"], "outputs": ["120", "4320", "52920"]}
+
+    test = "from sys import stdin, stdout\nfrom math import gcd, ceil, sqrt, factorial as f\nii1 = lambda : int(stdin.readline().strip())\nis1 = lambda : stdin.readline().strip()\niia = lambda : list(map(int, stdin.readline().strip().split()))\nisa = lambda : stdin.readline().strip().split()\nmod = 1000000007\nn = ii1()\nres = n * (n - 1) * (n - 2) * (n - 3) * (n - 4)\nprint(pow(res, 2) // f(5))\n"
+
+    # print(run_test(in_outs, test, debug=True))
+    solution = test_1.split("```python")[-1].split("```")[0]
+    print(solution)
+
+    print(compute_score(solution, in_outs_1, continuous=True))
+
+    # run_test(in_outs_2, test_2, debug=True)

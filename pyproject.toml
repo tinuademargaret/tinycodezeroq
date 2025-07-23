@@ -21,7 +21,7 @@ dynamic = ["version"]
 description = "verl: Volcano Engine Reinforcement Learning for LLM"
 license = {file = "LICENSE"}  # or "Apache-2.0", if you prefer an SPDX identifier
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 authors = [
   { name = "Bytedance - Seed - MLSys", email = "zhangchi.usc1992@bytedance.com" },
@@ -46,7 +46,6 @@ dependencies = [
     "tensordict<0.6",
     "torchdata",
     "transformers",
-    "vllm<=0.6.3",
     'wandb',
 ]
 
